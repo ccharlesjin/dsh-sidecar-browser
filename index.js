@@ -1840,7 +1840,7 @@ export function apply(ctx) {
       const shot = raw.screenshot;
       if (!shot || typeof shot.data !== 'string' || !shot.data) throw new Error('截图通道没有返回图片数据');
       const bytes = Buffer.from(shot.data, 'base64');
-      const directory = join(HERE, 'screenshots');
+      const directory = join(DATA_DIR, 'screenshots');
       mkdirSync(directory, { recursive: true });
       const filename = `screenshot-${new Date().toISOString().replace(/[:.]/g, '-')}-${randomUUID().slice(0, 8)}.png`;
       const path = join(directory, filename);

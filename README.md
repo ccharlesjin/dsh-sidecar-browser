@@ -74,6 +74,7 @@ Runtime data is written to `~/.dsh/ai-browser/`, not to the package directory:
 ~/.dsh/ai-browser/policy.json
 ~/.dsh/ai-browser/recipes.json
 ~/.dsh/ai-browser/host.log
+~/.dsh/ai-browser/screenshots/
 ```
 
 `policy.json` is seeded from the packaged default on first load, so npm updates

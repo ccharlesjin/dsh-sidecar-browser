@@ -1,6 +1,6 @@
 {
   "name": "dsh-sidecar-browser",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "DSH Sidecar Browser: a model-driven companion browser in the DeepSeek Harness right sidebar.",
   "license": "MIT",
   "author": "DSH Sidecar Browser contributors",
