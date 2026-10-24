@@ -32,6 +32,7 @@
     "install.ps1",
     "migrate-from-local.ps1",
     "README.md",
+    "README.zh.md",
     "LICENSE",
     "SECURITY.md",
     "CONTRIBUTING.md"

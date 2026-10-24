@@ -1,9 +1,13 @@
 # DSH Sidecar Browser
 
+[English](./README.md) | [简体中文](./README.zh.md)
+
 A model-driven companion browser for the **DeepSeek Harness (DSH)** right
 sidebar. It gives the model a real browser with token-efficient snapshots,
 structured extraction, assertions, diagnostics, uploads, downloads, screenshots
 and console/network inspection.
+
+> 中文用户：完整的中文介绍和用法见 [README.zh.md](./README.zh.md)。
 
 This repository is the reusable plugin package. It is intentionally separate
 from any personal DSH installation or private core patch.
