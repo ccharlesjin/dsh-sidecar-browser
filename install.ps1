@@ -4,7 +4,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$packageName = 'dsh-browser-live'
+$packageName = 'dsh-sidecar-browser'
 $root = $PSScriptRoot
 $profileDir = Join-Path $DshHome "profiles\$Profile"
 $packagePath = Join-Path $profileDir 'package.json'

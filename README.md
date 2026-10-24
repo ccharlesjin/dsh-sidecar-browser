@@ -1,6 +1,6 @@
-# DSH Browser Live
+# DSH Sidecar Browser
 
-A native Electron webview browser for the **DeepSeek Harness (DSH)** right
+A model-driven companion browser for the **DeepSeek Harness (DSH)** right
 sidebar. It gives the model a real browser with token-efficient snapshots,
 structured extraction, assertions, diagnostics, uploads, downloads, screenshots
 and console/network inspection.
@@ -35,12 +35,12 @@ Open **Plugins → Add plugin** and enter one of:
 
 | Source | Value |
 |---|---|
-| npm (after publish) | `dsh-browser-live` |
-| GitHub | `https://github.com/<your-org>/dsh-browser-live` |
+| npm (after publish) | `dsh-sidecar-browser` |
+| GitHub | `https://github.com/<your-org>/dsh-sidecar-browser` |
 | Local checkout | absolute path to this directory |
 
 If the plugin installs but no browser tab appears, open the plugin manager and
-enable/select the `dsh-browser-live` bundle, then restart DSH.
+enable/select the `dsh-sidecar-browser` bundle, then restart DSH.
 
 ### Install from a local checkout
 
@@ -112,7 +112,7 @@ npm pack --dry-run
 
 The plugin exposes itself through the `dsh` field in `package.json`:
 
-- `dsh.bundle.patch` inserts the `browser-live` bundle
+- `dsh.bundle.patch` inserts the `sidecar-browser` bundle
 - `dsh.client` injects the sidebar webview client
 
 There is no build step; the JavaScript files are shipped directly.

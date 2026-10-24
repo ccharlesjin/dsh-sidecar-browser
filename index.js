@@ -1593,7 +1593,7 @@ export function apply(ctx) {
   ctx.effect(() => {
     log('host loaded');
     ensureNativeBridge().catch((error) => log(`native bridge error: ${error.message || error}`));
-  }, 'browser-live.service');
+  }, 'sidecar-browser.service');
 
   ctx.tools.register({
     name: 'native_browser_tabs',
@@ -2077,7 +2077,7 @@ export function apply(ctx) {
       reason: `AI browser sensitive action: ${reason}`,
       displayReason: `AI 浏览器请求执行敏感操作：${reason}。允许本次操作吗？`,
     };
-  }), 'browser-live.approval');
+  }), 'sidecar-browser.approval');
 
   log('native browser tools registered');
 }

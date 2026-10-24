@@ -1,18 +1,18 @@
 # Publishing
 
-The package is ready to publish as `dsh-browser-live`.
+The package is ready to publish as `dsh-sidecar-browser`.
 
 ## 1. Create the GitHub repository
 
 ```powershell
 gh auth login
-gh repo create dsh-browser-live --public --source . --push
+gh repo create dsh-sidecar-browser --public --source . --push
 ```
 
 If the repository already exists:
 
 ```powershell
-git remote add origin https://github.com/<owner>/dsh-browser-live.git
+git remote add origin https://github.com/<owner>/dsh-sidecar-browser.git
 git push -u origin main
 ```
 
@@ -21,13 +21,13 @@ git push -u origin main
 Open **Plugins → Add plugin** and enter either:
 
 ```text
-https://github.com/<owner>/dsh-browser-live
+https://github.com/<owner>/dsh-sidecar-browser
 ```
 
 or, after npm publish:
 
 ```text
-dsh-browser-live
+dsh-sidecar-browser
 ```
 
 ## 3. Publish to npm

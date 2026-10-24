@@ -1,13 +1,13 @@
 window.__ModuleLoader__.load({
-  id: 'dsh-browser-live',
+  id: 'dsh-sidecar-browser',
   factory(require) {
     const React = require('react');
     const h = React.createElement;
 
     const BRIDGE_URL = 'http://127.0.0.1:32002';
     const NATIVE_KIND = 'native-browser';
-    const NATIVE_ID = 'dsh-browser-live/native';
-    const MULTI_UPGRADE_KEY = 'dsh-browser-live.upgrade.v1';
+    const NATIVE_ID = 'dsh-sidecar-browser/native';
+    const MULTI_UPGRADE_KEY = 'dsh-sidecar-browser.upgrade.v1';
 
     function tabTitle(tab) {
       return String(tab?.title || tab?.record?.title || tab?.label || '');
@@ -2957,7 +2957,7 @@ window.__ModuleLoader__.load({
             description: () => '模型操作，用户可随时接管',
             icon: AiStarIcon,
           }],
-        }), 'browser-live.native-type');
+        }), 'sidecar-browser.native-type');
 
         const NativeHost = (props) => h(NativePane, {
           ...props,
@@ -2973,7 +2973,7 @@ window.__ModuleLoader__.load({
         ctx.effect(() => ctx.slots.inject('sidebar.right.pane.tab', () => ctx.slots.register({
           name: 'sidebar.right.pane.tab',
           key: NATIVE_ID,
-        }, NativeHost)), 'browser-live.native-body');
+        }, NativeHost)), 'sidecar-browser.native-body');
 
         const NativeTitle = ({ useTabInfo }) => {
           const tab = typeof useTabInfo === 'function' ? useTabInfo()?.tab : undefined;
@@ -3005,7 +3005,7 @@ window.__ModuleLoader__.load({
         ctx.effect(() => ctx.slots.inject('sidebar.right.pane.tab.title', () => ctx.slots.register({
           name: 'sidebar.right.pane.tab.title',
           key: NATIVE_ID,
-        }, NativeTitle)), 'browser-live.native-title');
+        }, NativeTitle)), 'sidecar-browser.native-title');
 
         // One-time multi-tab upgrade: old single-instance tabs may not have a
         // body under the new multiple registration. Close them once and open
@@ -3038,7 +3038,7 @@ window.__ModuleLoader__.load({
             }
           }, 1000);
           return () => clearInterval(timer);
-        }, 'browser-live.multi-upgrade');
+        }, 'sidecar-browser.multi-upgrade');
 
         // Ensure at least one AI tab; migrate the old "原生浏览器" title once.
         // Never open a second tab on load: multiple tabs are user-created.
@@ -3099,11 +3099,11 @@ window.__ModuleLoader__.load({
             }
           }, 1000);
           return () => clearInterval(timer);
-        }, 'browser-live.ensure-tab');
+        }, 'sidecar-browser.ensure-tab');
 
         ctx.inject(['shortcuts'], (ctx) => {
           ctx.effect(() => ctx.shortcuts.register({
-            id: 'browser-live.open',
+            id: 'sidecar-browser.open',
             label: () => 'AI 浏览器',
             aliases: ['browser live', 'native browser', 'AI 浏览器', '原生浏览器'],
             defaults: {
@@ -3124,7 +3124,7 @@ window.__ModuleLoader__.load({
                 return { status: 'blocked', reason: '请先打开一个会话' };
               }
             },
-          }), 'browser-live.shortcut');
+          }), 'sidecar-browser.shortcut');
         });
       },
     };

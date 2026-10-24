@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for helping improve DSH Browser Live.
+Thanks for helping improve DSH Sidecar Browser.
 
 ## Development checks
 
