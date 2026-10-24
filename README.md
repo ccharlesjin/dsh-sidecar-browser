@@ -36,7 +36,7 @@ Open **Plugins → Add plugin** and enter one of:
 | Source | Value |
 |---|---|
 | npm (after publish) | `dsh-sidecar-browser` |
-| GitHub | `https://github.com/<your-org>/dsh-sidecar-browser` |
+| GitHub | `https://github.com/ccharlesjin/dsh-sidecar-browser` |
 | Local checkout | absolute path to this directory |
 
 If the plugin installs but no browser tab appears, open the plugin manager and

@@ -12,7 +12,7 @@ gh repo create dsh-sidecar-browser --public --source . --push
 If the repository already exists:
 
 ```powershell
-git remote add origin https://github.com/<owner>/dsh-sidecar-browser.git
+git remote add origin https://github.com/ccharlesjin/dsh-sidecar-browser.git
 git push -u origin main
 ```
 
@@ -21,7 +21,7 @@ git push -u origin main
 Open **Plugins → Add plugin** and enter either:
 
 ```text
-https://github.com/<owner>/dsh-sidecar-browser
+https://github.com/ccharlesjin/dsh-sidecar-browser
 ```
 
 or, after npm publish:

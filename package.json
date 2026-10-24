@@ -4,6 +4,14 @@
   "description": "DSH Sidecar Browser: a model-driven companion browser in the DeepSeek Harness right sidebar.",
   "license": "MIT",
   "author": "DSH Sidecar Browser contributors",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ccharlesjin/dsh-sidecar-browser.git"
+  },
+  "homepage": "https://github.com/ccharlesjin/dsh-sidecar-browser#readme",
+  "bugs": {
+    "url": "https://github.com/ccharlesjin/dsh-sidecar-browser/issues"
+  },
   "type": "module",
   "main": "./index.js",
   "exports": {
