@@ -1,0 +1,3 @@
+- insert:
+    - id: browser-live
+      name: 'dsh-browser-live'

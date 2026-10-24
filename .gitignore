@@ -1,0 +1,7 @@
+node_modules/
+host.log
+recipes.json
+screenshots/
+*.tgz
+.DS_Store
+Thumbs.db
