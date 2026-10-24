@@ -4,22 +4,32 @@
  * The model drives the native Electron webview in the right sidebar through
  * the narrow bridge on port 32002. No Playwright fallback remains.
  */
-import { appendFile, readFile, stat, writeFile } from 'node:fs/promises';
+import { appendFile, copyFile, readFile, stat, writeFile } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { get } from 'node:http';
 import { mkdirSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { basename, dirname, extname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
+const DSH_HOME = process.env.DSH_HOME || join(homedir(), '.dsh');
+const DATA_DIR = join(DSH_HOME, 'ai-browser');
 const NATIVE_PORT = 32002;
 const NATIVE_URL = `http://127.0.0.1:${NATIVE_PORT}`;
-const LOG = join(HERE, 'host.log');
-const RECIPES_FILE = join(HERE, 'recipes.json');
-const POLICY_FILE = join(HERE, 'policy.json');
+const LOG = join(DATA_DIR, 'host.log');
+const RECIPES_FILE = join(DATA_DIR, 'recipes.json');
+const POLICY_FILE = join(DATA_DIR, 'policy.json');
+const DEFAULT_POLICY_FILE = join(HERE, 'policy.json');
 let recipes = null;
 const browserWorkspace = new Map();
+
+try {
+  mkdirSync(DATA_DIR, { recursive: true });
+} catch {
+  // The plugin can still run with in-memory defaults if the data dir is read-only.
+}
 
 const DEFAULT_POLICY = {
   allowedDomains: [],
@@ -28,7 +38,26 @@ const DEFAULT_POLICY = {
   uploadRoots: [],
 };
 
+async function ensurePolicyFile() {
+  try {
+    await stat(POLICY_FILE);
+    return;
+  } catch {
+    // seed from the package template below
+  }
+  try {
+    await copyFile(DEFAULT_POLICY_FILE, POLICY_FILE);
+  } catch {
+    try {
+      await writeFile(POLICY_FILE, JSON.stringify(DEFAULT_POLICY, null, 2), 'utf8');
+    } catch {
+      // read-only home: defaults remain in memory
+    }
+  }
+}
+
 async function loadPolicy() {
+  await ensurePolicyFile();
   try {
     const data = JSON.parse(await readFile(POLICY_FILE, 'utf8'));
     return {

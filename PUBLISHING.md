@@ -44,7 +44,7 @@ Then DSH can install it by package name.
 ```powershell
 npm run check
 npm pack --dry-run
-git tag v1.1.0
+git tag v1.1.1
 git push origin main --tags
 ```
 

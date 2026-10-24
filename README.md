@@ -51,6 +51,34 @@ powershell -ExecutionPolicy Bypass -File .\install.ps1
 The script creates a junction in the desktop profile and adds the package to the
 profile bundle list. Restart DSH afterwards.
 
+### Migrating from the old local plugin
+
+If the old `@local/dsh-browser-live` plugin is still registered, do not install
+both plugins side by side: they would register duplicate tools and both try to
+use the bridge port. Close DSH and run:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\migrate-from-local.ps1 -DryRun
+powershell -ExecutionPolicy Bypass -File .\migrate-from-local.ps1
+```
+
+The migration backs up old `policy.json` / `recipes.json` into
+`~/.dsh/ai-browser/`, removes the old profile dependency/bundle/junction, and
+keeps the old plugin directory as a backup. Then install the new plugin from DSH.
+
+## Where user data lives
+
+Runtime data is written to `~/.dsh/ai-browser/`, not to the package directory:
+
+```text
+~/.dsh/ai-browser/policy.json
+~/.dsh/ai-browser/recipes.json
+~/.dsh/ai-browser/host.log
+```
+
+`policy.json` is seeded from the packaged default on first load, so npm updates
+do not overwrite your allowlists, upload roots or recipes.
+
 ## Core patch is optional
 
 Some features require a small DSH Electron main/preload patch:
@@ -76,8 +104,9 @@ patches are version-specific and must be rebuilt after a DSH update.
 - URLs and console text redact token/JWT/Bearer-style parameters
 - Downloads go to `Downloads/DSH Browser`, are name-sanitized and never auto-open
 
-Edit `policy.json` in the installed plugin directory to change domain allowlists,
-confirmation keywords or upload roots.
+Edit `~/.dsh/ai-browser/policy.json` to change domain allowlists,
+confirmation keywords or upload roots. The packaged `policy.json` is only the
+first-run template.
 
 ## Main tools
 
