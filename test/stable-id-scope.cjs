@@ -19,7 +19,7 @@ async function command(action, args = {}) {
   const response = await fetch(`${BRIDGE}/command`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ action, args }),
+    body: JSON.stringify({ action, args, sessionId: process.env.DSH_SESSION_ID || '' }),
   });
   const data = await response.json();
   if (!response.ok || data.ok === false) throw new Error(`${action}: ${data.error || response.status}`);
