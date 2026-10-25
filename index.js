@@ -671,6 +671,9 @@ const elementSchema = {
     name: { type: 'string' },
     href: { type: 'string' },
     checked: { type: 'boolean' },
+    blocked: { type: 'boolean' },
+    blockedBy: { type: 'string' },
+    disabled: { type: 'boolean' },
   },
   required: ['id', 'tag', 'text', 'type', 'name', 'href'],
 };
@@ -1008,6 +1011,16 @@ function renderExtract(value) {
   ];
   lines.push('');
   lines.push(`DATA: ${JSON.stringify(value.data)}`);
+  // Non-HTML pages cannot be extracted structurally. Say so explicitly and show
+  // the raw text, otherwise a caller silently gets empty fields and assumes the
+  // selectors were simply wrong.
+  if (value.data && value.data.nonHtml === true) {
+    if (value.data.status) lines.push(`STATUS: ${value.data.status}`);
+    if (typeof value.data.text === 'string' && value.data.text.length > 0) {
+      lines.push('TEXT:');
+      lines.push(value.data.text);
+    }
+  }
   if (Array.isArray(value.errors) && value.errors.length > 0) {
     lines.push(`ERRORS: ${value.errors.join('; ')}`);
   }
@@ -1058,7 +1071,17 @@ function renderSnapshot(value) {
     const checked = typeof element.checked === 'boolean'
       ? ` [${element.checked ? 'checked' : 'unchecked'}]`
       : '';
-    return `[${element.id}] <${element.tag}>${checked} ${element.text}${href}`;
+    // Surface elements the page will not deliver pointer events to. Without this
+    // the model has to discover it by spending a failed click.
+    let blocked = '';
+    if (element.blocked === true) {
+      blocked = element.blockedBy
+        ? ` (pointer-events:none，需点 ${element.blockedBy})`
+        : ' (pointer-events:none，不可点)';
+    } else if (element.disabled === true) {
+      blocked = ' (disabled)';
+    }
+    return `[${element.id}] <${element.tag}>${checked} ${element.text}${href}${blocked}`;
   };
   const elements = value.elements && value.elements.length > 0
     ? value.elements.map(formatElement).join('\n')
@@ -1754,7 +1777,7 @@ export function apply(ctx) {
       const value = {
         url: raw.url,
         title: raw.title,
-        revision: raw.revision,
+        revision: Number.isInteger(raw.revision) ? raw.revision : 0,
         ...(raw.tab ? { tab: raw.tab } : {}),
         data: raw.data && typeof raw.data === 'object' ? raw.data : {},
         ...(Array.isArray(raw.errors) && raw.errors.length > 0 ? { errors: raw.errors } : {}),

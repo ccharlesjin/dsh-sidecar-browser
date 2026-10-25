@@ -1,0 +1,19 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Pointer Events None</title>
+<style>
+.pe-none { pointer-events: none; }
+label { display: inline-flex; align-items: center; gap: 6px; padding: 8px; border: 1px solid #ccc; margin: 6px; cursor: pointer; }
+</style></head>
+<body>
+<h1>Pointer-Events None Test</h1>
+<label><input type="checkbox" class="pe-none" id="a" name="pe"> <span>pointer-events:none checkbox</span></label>
+<label><input type="checkbox" id="b" name="normal"> <span>normal checkbox</span></label>
+<p id="out">out</p>
+<script>
+  document.querySelectorAll('input[type=checkbox]').forEach(function (checkbox) {
+    checkbox.addEventListener('change', function () {
+      document.getElementById('out').textContent = 'changed:' + checkbox.name + '=' + checkbox.checked;
+    });
+  });
+</script>
+</body></html>

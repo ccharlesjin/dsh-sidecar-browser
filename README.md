@@ -46,6 +46,9 @@ on a diet, everything visible and local**.
 - **Built for actions, not just reads.** Batched `act` steps, per-step `expect`
   assertions, structured `extract`, and failure diagnostics that tell you *why*
   an element was not clickable.
+- **Obstacles surfaced early.** `pointer-events:none` inputs are reported at
+  observe time with the label to click instead; non-HTML documents return text
+  from `extract` instead of throwing.
 - **Human in the loop.** Take over the browser at any time; the agent waits.
 - **Scope-independent IDs.** The same element keeps the same `dsh-*` id whether
   you observe the full page or a subtree, so changing scope cannot silently
@@ -241,6 +244,8 @@ DSH Sidecar Browser 反过来做：**动作优先、观察节食、全程可见�
   12 个字符的 `UNCHANGED`。
 - **为动作而生，不只是读页面。** 批量 `act`、逐步 `expect` 断言、结构化 `extract`，
   失败时直接告诉你元素为什么点不了。
+- **障碍提前暴露。** `pointer-events:none` 的输入框在观察阶段就会提示应该点哪个
+  label；非 HTML 文档的 `extract` 会回退返回文本，而不是直接报错。
 - **人可以随时接管。** 你接管浏览器，Agent 等待；你交还，它继续。
 - **ID 不随 scope 漂移。** 同一个元素，无论全量观察还是 scope 子树，都保持同一个
   `dsh-*` id；切换观察范围不会让点击悄悄落到邻居元素上。

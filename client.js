@@ -291,6 +291,59 @@ window.__ModuleLoader__.load({
         return id;
       }
 
+      // When an element cannot receive pointer events, find the element the page
+      // actually expects to be clicked, so the snapshot can tell the model where
+      // to aim. Two distinct cases matter:
+      //   1. a sibling/associated <label for="..."> that the UA uses as the
+      //      click proxy (el.labels covers both wrapping and explicit-for forms),
+      //   2. a wrapping custom control (role=checkbox/switch/button).
+      const isClickTarget = (node, el) => {
+        if (!node) return false;
+        const isLabel = node.tagName === 'LABEL';
+        const wraps = isLabel && node.contains(el);
+        const isControl = ['BUTTON', 'A'].includes(node.tagName)
+          || node.getAttribute('role') === 'button'
+          || node.getAttribute('role') === 'checkbox'
+          || node.getAttribute('role') === 'switch';
+        return wraps || isControl;
+      };
+      const isReachable = (view, node) => {
+        try {
+          const style = view.getComputedStyle(node);
+          if (style.display === 'none' || style.visibility === 'hidden') return false;
+          if (style.pointerEvents === 'none') return false;
+          const rect = node.getBoundingClientRect();
+          return !(rect.width < 2 || rect.height < 2);
+        } catch {
+          return false;
+        }
+      };
+      const clickableAncestor = (el) => {
+        const view = el.ownerDocument?.defaultView || window;
+        // Case 1: the browser's own label association (covers <label for> siblings).
+        try {
+          for (const label of Array.from(el.labels || [])) {
+            if (isReachable(view, label)) return label;
+          }
+        } catch {
+          // el.labels is unavailable on non-form controls
+        }
+        // Case 2: a wrapping label/control, walking up a few levels.
+        let node = el;
+        for (let depth = 0; depth < 4 && node; depth += 1) {
+          node = node.parentElement;
+          if (!node || node === el.ownerDocument?.body) break;
+          if (!isReachable(view, node)) continue;
+          if (isClickTarget(node, el)) return node;
+        }
+        return null;
+      };
+      const describeElement = (el) => {
+        const tag = el.tagName.toLowerCase();
+        const id = el.getAttribute('id');
+        return id ? `${tag}#${id}` : tag;
+      };
+
       function collect(doc, framePath, depth) {
         if (!doc) return;
         if (depth > MAX_DEPTH) {
@@ -354,6 +407,18 @@ window.__ModuleLoader__.load({
               href: redactUrl(el.href || ''),
             };
             if (typeof checked === 'boolean') entry.checked = checked;
+            // Report pointer-events:none at observe time instead of letting the
+            // model discover it through a failed click. Custom form components
+            // (Tencent Meeting, Ant Design, Element UI) routinely hide the real
+            // <input> this way and expect the wrapping <label> to be clicked, and
+            // the two look identical in a snapshot otherwise.
+            if (style.pointerEvents === 'none') {
+              const target = clickableAncestor(el);
+              entry.blocked = true;
+              if (target) entry.blockedBy = describeElement(target);
+            } else if (el.disabled === true || el.getAttribute('aria-disabled') === 'true') {
+              entry.disabled = true;
+            }
             elements.push(entry);
           } catch {
             // a detached or restricted node
@@ -1694,6 +1759,51 @@ window.__ModuleLoader__.load({
           }
         }
 
+        // Shared non-HTML fallback. Structured-DOM scripts cannot run on plain
+        // text/JSON/PDF documents, so both observe and extract fall back to the
+        // in-page text probe and then to an HTTP fetch of the same URL.
+        async function readNonHtmlText() {
+          let fallback = null;
+          try {
+            fallback = await element.executeJavaScript(FALLBACK_SCRIPT, true);
+          } catch {
+            fallback = null;
+          }
+          let url = '';
+          let title = '';
+          try {
+            url = element.getURL();
+            title = element.getTitle();
+          } catch {
+            // guest may be in a non-DOM document
+          }
+          if (fallback?.title) setTabTitle(dshTabId, fallback.title);
+          let text = fallback?.text || '';
+          let status = '当前页面类型不支持完整的结构化 DOM 读取（可能是纯文本/JSON/PDF）；已回退到纯文本读取';
+          if (!text && /^https?:/i.test(url)) {
+            try {
+              const response = await fetch(url, { credentials: 'omit' });
+              const contentType = String(response.headers.get('content-type') || '').toLowerCase();
+              const textual = contentType.startsWith('text/')
+                || contentType.includes('json')
+                || contentType.includes('xml')
+                || contentType.includes('javascript');
+              if (response.ok && textual) {
+                text = (await response.text()).slice(0, 24000);
+                status = '当前页面不是 HTML；已通过 HTTP 读取纯文本/JSON 内容';
+              }
+            } catch {
+              // CORS or network rejection; keep the warning only
+            }
+          }
+          return {
+            text,
+            status,
+            url: fallback?.url || url || '',
+            title: fallback?.title || title || '',
+          };
+        }
+
         async function readSnapshot(options = {}) {
           try {
             const data = await element.executeJavaScript(readScript(options), true);
@@ -1712,39 +1822,7 @@ window.__ModuleLoader__.load({
               takeover: takeoverRef.current,
             };
           } catch {
-            let fallback = null;
-            try {
-              fallback = await element.executeJavaScript(FALLBACK_SCRIPT, true);
-            } catch {
-              fallback = null;
-            }
-            let url = '';
-            let title = '';
-            try {
-              url = element.getURL();
-              title = element.getTitle();
-            } catch {
-              // guest may be in a non-DOM document
-            }
-            if (fallback?.title) setTabTitle(dshTabId, fallback.title);
-            let text = fallback?.text || '';
-            let status = '当前页面类型不支持完整的结构化 DOM 读取（可能是纯文本/JSON/PDF）；已回退到纯文本读取';
-            if (!text && /^https?:/i.test(url)) {
-              try {
-                const response = await fetch(url, { credentials: 'omit' });
-                const contentType = String(response.headers.get('content-type') || '').toLowerCase();
-                const textual = contentType.startsWith('text/')
-                  || contentType.includes('json')
-                  || contentType.includes('xml')
-                  || contentType.includes('javascript');
-                if (response.ok && textual) {
-                  text = (await response.text()).slice(0, 24000);
-                  status = '当前页面不是 HTML；已通过 HTTP 读取纯文本/JSON 内容';
-                }
-              } catch {
-                // CORS or network rejection; keep the warning only
-              }
-            }
+            const fallbackData = await readNonHtmlText();
             let consoleEntries = [];
             if (options.includeConsole !== false) {
               await collectPageErrors();
@@ -1752,12 +1830,12 @@ window.__ModuleLoader__.load({
             }
             return {
               ok: true,
-              url: fallback?.url || url || '',
-              title: fallback?.title || title || '',
-              text,
+              url: fallbackData.url,
+              title: fallbackData.title,
+              text: fallbackData.text,
               elements: [],
               dialogs: [],
-              status,
+              status: fallbackData.status,
               ...(consoleEntries.length > 0 ? { console: consoleEntries } : {}),
               takeover: takeoverRef.current,
             };
@@ -2662,14 +2740,36 @@ window.__ModuleLoader__.load({
             }
 
             if (action === 'extract') {
-              const result = await element.executeJavaScript(extractScript({
-                fields: args.fields,
-                table: args.table,
-                meta: args.meta,
-                jsonld: args.jsonld,
-                maxLength: args.maxLength,
-                debug: args.debug === true,
-              }), true);
+              let result;
+              try {
+                result = await element.executeJavaScript(extractScript({
+                  fields: args.fields,
+                  table: args.table,
+                  meta: args.meta,
+                  jsonld: args.jsonld,
+                  maxLength: args.maxLength,
+                  debug: args.debug === true,
+                }), true);
+              } catch {
+                // Structured extraction cannot run on a non-HTML document.
+                // Fall back to the same plain-text path observe already uses,
+                // and return the raw text so selectors are not silently empty.
+                const fallbackData = await readNonHtmlText();
+                return {
+                  ok: true,
+                  url: fallbackData.url,
+                  title: fallbackData.title,
+                  data: {
+                    fields: {},
+                    meta: {},
+                    table: null,
+                    jsonld: [],
+                    text: fallbackData.text,
+                    nonHtml: true,
+                    status: `${fallbackData.status}；extract 无法在非 HTML 文档上执行结构化抽取，已返回纯文本`,
+                  },
+                };
+              }
               return { ok: true, ...result };
             }
 
