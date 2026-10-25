@@ -91,6 +91,13 @@ async function main() {
     check('semantic-query-hit', queryMatches.length === 1, `${queryMatches.length} matches`);
     check('semantic-query-row-text', String(queryMatches[0]?.text || '').includes('ORD-0173'), queryMatches[0]?.text || '');
     check('semantic-query-target', queryMatches[0]?.tag === 'tr', `tag=${queryMatches[0]?.tag}`);
+
+    const interactive = await command('observe', { mode: 'interactive', limit: 20 });
+    check('interactive-mode', interactive.mode === 'interactive', `mode=${interactive.mode}`);
+    check('interactive-context', String(interactive.elements?.[0]?.context || '').includes('table#orders'),
+      interactive.elements?.[0]?.context || '');
+    check('interactive-no-page-text', !String(interactive.text || '').includes('ORD-0001'),
+      `text=${String(interactive.text || '').slice(0, 80)}`);
   } finally {
     server.close();
   }

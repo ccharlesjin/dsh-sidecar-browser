@@ -41,8 +41,9 @@ on a diet, everything visible and local**.
 
 - **A real browser, not a simulation.** Native Electron `<webview>` with real
   navigation, downloads, file inputs, dialogs and tabs.
-- **Token-efficient by design.** Snapshot budgets from `none` to `full`, revision
-  deltas, and a 12-character `UNCHANGED` response when a page did not move.
+- **Token-efficient by design.** Snapshot modes `minimal`, `interactive`,
+  `standard` and `full`, revision deltas, and a 12-character `UNCHANGED`
+  response when a page did not move.
 - **Built for actions, not just reads.** Batched `act` steps, per-step `expect`
   assertions, structured `extract`, and failure diagnostics that tell you *why*
   an element was not clickable.
@@ -100,6 +101,9 @@ await native_browser_navigate({ url: "https://example.com" });
 // Cheap structural view with stable dsh-* references.
 await native_browser_observe({ mode: "minimal" });
 
+// Actionable elements only, grouped by their section/form context.
+await native_browser_observe({ mode: "interactive" });
+
 // Actions + assertions + extraction in one round trip.
 await native_browser_act({
   actions: [
@@ -119,7 +123,7 @@ await native_browser_extract({ query: "ORD-0173", limit: 5 });
 | Area | What you get |
 |---|---|
 | Navigation | tabs, history, back/reload, popup policy, user takeover |
-| Observation | budgets, deltas, scoped reads, text limits, revisions |
+| Observation | budgets, interactive-only mode with context, deltas, scoped reads, revisions |
 | Actions | click, type, hover, batched act, assertions, retries |
 | Extraction | semantic query, CSS fields, tables, meta, JSON-LD, debug hints |
 | Diagnostics | not-found candidates, actionability reasons, console context |
@@ -243,8 +247,8 @@ DSH Sidecar Browser 反过来做：**动作优先、观察节食、全程可见�
 
 - **真浏览器，不是模拟。** 原生 Electron `<webview>`，真实导航、下载、文件选择、
   对话框和多标签。
-- **天生省 token。** 快照预算从 `none` 到 `full`，支持 revision 增量；页面没变化时只回
-  12 个字符的 `UNCHANGED`。
+- **天生省 token。** 快照模式 `minimal` / `interactive` / `standard` / `full`，支持
+  revision 增量；页面没变化时只回 12 个字符的 `UNCHANGED`。
 - **为动作而生，不只是读页面。** 批量 `act`、逐步 `expect` 断言、结构化 `extract`，
   失败时直接告诉你元素为什么点不了。
 - **障碍提前暴露。** `pointer-events:none` 的输入框在观察阶段就会提示应该点哪个
@@ -295,6 +299,9 @@ await native_browser_navigate({ url: "https://example.com" });
 // 低成本结构快照，返回稳定的 dsh-* 引用。
 await native_browser_observe({ mode: "minimal" });
 
+// 只保留可操作元素，并按 section/form 上下文分组。
+await native_browser_observe({ mode: "interactive" });
+
 // 动作 + 断言 + 提取，一次往返完成。
 await native_browser_act({
   actions: [
@@ -314,7 +321,7 @@ await native_browser_extract({ query: "ORD-0173", limit: 5 });
 | 能力 | 说明 |
 |---|---|
 | 导航 | 标签页、历史、后退/刷新、弹窗策略、用户接管 |
-| 观察 | 多档快照、增量 diff、范围读取、文本上限、revision |
+| 观察 | 多档快照、interactive 模式（仅动作元素 + 上下文）、增量 diff、范围读取 |
 | 动作 | 点击、输入、悬停、批量 act、断言、重试 |
 | 提取 | 语义 query、CSS 字段、表格、meta、JSON-LD、debug |
 | 诊断 | 找不到元素时候选列表、不可点击原因、console 上下文 |

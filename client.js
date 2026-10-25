@@ -201,7 +201,7 @@ window.__ModuleLoader__.load({
       };
       const opts = options || {};
       const OFFSET = Math.min(10000, Math.max(0, Math.floor(Number(opts.offset) || 0)));
-      const MODE = ['minimal', 'standard', 'full'].includes(opts.mode) ? opts.mode : 'standard';
+      const MODE = ['minimal', 'interactive', 'standard', 'full'].includes(opts.mode) ? opts.mode : 'standard';
       const DEFAULT_ELEMENTS = MODE === 'minimal' ? 20 : 200;
       const MAX_ELEMENTS = Math.min(500, Math.max(20, Math.floor(Number(opts.limit) || DEFAULT_ELEMENTS)));
       const TEXT_LIMIT = Math.min(
@@ -343,6 +343,28 @@ window.__ModuleLoader__.load({
         const id = el.getAttribute('id');
         return id ? `${tag}#${id}` : tag;
       };
+      const interactiveContext = (el) => {
+        const parts = [];
+        let node = el.parentElement;
+        for (let depth = 0; depth < 6 && node && node !== document.body; depth += 1, node = node.parentElement) {
+          const role = node.getAttribute('role');
+          if (!['SECTION', 'FORM', 'FIELDSET', 'ARTICLE', 'MAIN', 'NAV', 'DIALOG', 'TABLE'].includes(node.tagName)
+            && !['group', 'region', 'form', 'navigation'].includes(role)) {
+            continue;
+          }
+          const id = node.getAttribute('id');
+          const label = node.getAttribute('aria-label') || '';
+          let heading = '';
+          try {
+            heading = clean(node.querySelector('h1,h2,h3,h4,h5,h6,legend')?.innerText || '');
+          } catch {
+            heading = '';
+          }
+          const name = `${node.tagName.toLowerCase()}${id ? `#${id}` : ''}${label ? ` ${label}` : ''}${heading ? ` ${heading}` : ''}`;
+          parts.unshift(name.slice(0, 80));
+        }
+        return clean(parts.join(' > ')).slice(0, 140);
+      };
 
       function collect(doc, framePath, depth) {
         if (!doc) return;
@@ -406,6 +428,10 @@ window.__ModuleLoader__.load({
               name: el.getAttribute('name') || '',
               href: redactUrl(el.href || ''),
             };
+            if (MODE === 'interactive') {
+              const context = interactiveContext(el);
+              if (context) entry.context = context;
+            }
             if (typeof checked === 'boolean') entry.checked = checked;
             // Report pointer-events:none at observe time instead of letting the
             // model discover it through a failed click. Custom form components
@@ -428,7 +454,7 @@ window.__ModuleLoader__.load({
         const bodyText = MODE === 'minimal'
           ? (main?.innerText || doc.innerText || doc.body?.innerText || '')
           : (doc.innerText ?? doc.body?.innerText ?? '');
-        if (bodyText.trim()) {
+        if (MODE !== 'interactive' && bodyText.trim()) {
           texts.push(`${framePath ? `[iframe ${framePath}]\n` : ''}${redactText(bodyText)}`);
         }
         const frames = Array.from(doc.querySelectorAll('iframe, frame'));
@@ -1933,7 +1959,7 @@ window.__ModuleLoader__.load({
         }
 
         async function readAfterAction(args = {}) {
-          const mode = ['none', 'minimal', 'standard', 'full'].includes(args.snapshot)
+          const mode = ['none', 'minimal', 'interactive', 'standard', 'full'].includes(args.snapshot)
             ? args.snapshot
             : 'minimal';
           if (mode === 'none') {
@@ -2056,7 +2082,7 @@ window.__ModuleLoader__.load({
             text: data.text || '',
             elements: Array.isArray(data.elements) ? data.elements : [],
           };
-          const effectiveMode = ['minimal', 'standard', 'full'].includes(options.mode)
+          const effectiveMode = ['minimal', 'interactive', 'standard', 'full'].includes(options.mode)
             ? options.mode
             : 'standard';
           const params = {

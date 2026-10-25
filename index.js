@@ -674,6 +674,7 @@ const elementSchema = {
     blocked: { type: 'boolean' },
     blockedBy: { type: 'string' },
     disabled: { type: 'boolean' },
+    context: { type: 'string' },
   },
   required: ['id', 'tag', 'text', 'type', 'name', 'href'],
 };
@@ -1097,7 +1098,23 @@ function renderSnapshot(value) {
     return `[${element.id}] <${element.tag}>${checked} ${element.text}${href}${blocked}`;
   };
   const elements = value.elements && value.elements.length > 0
-    ? value.elements.map(formatElement).join('\n')
+    ? (
+      value.mode === 'interactive'
+        ? (() => {
+          const lines = [];
+          let lastContext = null;
+          for (const element of value.elements) {
+            const context = element.context || '';
+            if (context !== lastContext) {
+              lines.push(`CONTEXT: ${context || '(root)'}`);
+              lastContext = context;
+            }
+            lines.push(formatElement(element));
+          }
+          return lines.join('\n');
+        })()
+        : value.elements.map(formatElement).join('\n')
+    )
     : '(none)';
   const takeover = value.takeover ? '\nUSER TAKEOVER: yes (AI actions are paused)' : '';
   const tab = value.tab ? `\nTAB: ${value.tab}` : '';
@@ -1133,7 +1150,10 @@ function renderSnapshot(value) {
     const summary = `DELTA: +${(value.delta.added || []).length} -${(value.delta.removed || []).length} ~${(value.delta.changed || []).length}${value.delta.textChanged ? ' textChanged' : ''}`;
     return `URL: ${value.url}\nTITLE: ${value.title}\nSTATUS: ${value.status}${tab}${revision}${takeover}${dialogs}${consoleBlock}${batch}${recipe}${task}\n\n${summary}\nCHANGED: yes\n${lines.join('\n') || '(no element delta)'}`;
   }
-  return `URL: ${value.url}\nTITLE: ${value.title}\nSTATUS: ${value.status}${tab}${revision}${changed}${takeover}${dialogs}${consoleBlock}${batch}${recipe}${task}\n\nINTERACTIVE ELEMENTS:\n${elements}\n\nPAGE TEXT:\n${value.text}`;
+  const pageText = value.mode === 'interactive'
+    ? ''
+    : `\n\nPAGE TEXT:\n${value.text}`;
+  return `URL: ${value.url}\nTITLE: ${value.title}\nSTATUS: ${value.status}${tab}${revision}${changed}${takeover}${dialogs}${consoleBlock}${batch}${recipe}${task}\n\nINTERACTIVE ELEMENTS:\n${elements}${pageText}`;
 }
 
 function tool(name, description, parameters, action, extra = {}, caller = nativeCall) {
@@ -1167,7 +1187,7 @@ const tabArgs = {
 
 const snapshotParameter = {
   type: 'string',
-  enum: ['none', 'minimal', 'standard', 'full'],
+  enum: ['none', 'minimal', 'interactive', 'standard', 'full'],
   description: 'Post-action snapshot size. Default minimal (20 elements, short text); none returns only URL/title/revision/dialogs; standard/full return larger snapshots.',
 };
 
@@ -1182,7 +1202,7 @@ const actionArgs = {
 
 const actSnapshotParameter = {
   type: 'string',
-  enum: ['none', 'delta', 'minimal', 'standard', 'full'],
+  enum: ['none', 'delta', 'minimal', 'interactive', 'standard', 'full'],
   description: 'Final batch snapshot. delta returns only DOM/text changes against an automatic pre-batch baseline (same-URL only); none returns metadata only; minimal is the default.',
 };
 
@@ -1214,8 +1234,8 @@ const observeArgs = {
     tab: tabParameter,
     mode: {
       type: 'string',
-      enum: ['minimal', 'standard', 'full'],
-      description: 'Observation depth. minimal keeps only a short text excerpt plus actionable elements; standard is the default; full keeps the complete current snapshot.',
+      enum: ['minimal', 'interactive', 'standard', 'full'],
+      description: 'Observation depth. minimal keeps only a short text excerpt plus actionable elements; interactive keeps only actionable elements grouped under their section/form context (no decorative page text); standard is the default; full keeps the complete current snapshot.',
     },
     scope: {
       type: 'string',
