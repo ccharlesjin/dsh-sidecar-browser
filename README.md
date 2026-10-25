@@ -109,6 +109,9 @@ await native_browser_act({
   expect: { textIncludes: "Saved" },
   snapshot: "none"
 });
+
+// No selector? Ask for the row by its text.
+await native_browser_extract({ query: "ORD-0173", limit: 5 });
 ```
 
 ### Feature tour
@@ -118,7 +121,7 @@ await native_browser_act({
 | Navigation | tabs, history, back/reload, popup policy, user takeover |
 | Observation | budgets, deltas, scoped reads, text limits, revisions |
 | Actions | click, type, hover, batched act, assertions, retries |
-| Extraction | CSS fields, tables, meta, JSON-LD, debug hints |
+| Extraction | semantic query, CSS fields, tables, meta, JSON-LD, debug hints |
 | Diagnostics | not-found candidates, actionability reasons, console context |
 | Files | file input upload, drag/drop, controlled downloads |
 | Visual | viewport, element and stitched full-page screenshots |
@@ -301,6 +304,9 @@ await native_browser_act({
   expect: { textIncludes: "已保存" },
   snapshot: "none"
 });
+
+// 不想写选择器？用文本直接找目标行。
+await native_browser_extract({ query: "ORD-0173", limit: 5 });
 ```
 
 ### 能力一览
@@ -310,7 +316,7 @@ await native_browser_act({
 | 导航 | 标签页、历史、后退/刷新、弹窗策略、用户接管 |
 | 观察 | 多档快照、增量 diff、范围读取、文本上限、revision |
 | 动作 | 点击、输入、悬停、批量 act、断言、重试 |
-| 提取 | CSS 字段、表格、meta、JSON-LD、debug |
+| 提取 | 语义 query、CSS 字段、表格、meta、JSON-LD、debug |
 | 诊断 | 找不到元素时候选列表、不可点击原因、console 上下文 |
 | 文件 | file input 上传、拖拽上传、受控下载 |
 | 视觉 | viewport、元素、拼接 full-page 截图 |

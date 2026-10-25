@@ -1010,15 +1010,28 @@ function renderExtract(value) {
     `REVISION: ${value.revision}`,
   ];
   lines.push('');
-  lines.push(`DATA: ${JSON.stringify(value.data)}`);
-  // Non-HTML pages cannot be extracted structurally. Say so explicitly and show
-  // the raw text, otherwise a caller silently gets empty fields and assumes the
-  // selectors were simply wrong.
-  if (value.data && value.data.nonHtml === true) {
-    if (value.data.status) lines.push(`STATUS: ${value.data.status}`);
-    if (typeof value.data.text === 'string' && value.data.text.length > 0) {
-      lines.push('TEXT:');
-      lines.push(value.data.text);
+  if (value.data && value.data.query) {
+    const query = value.data.query;
+    const matches = Array.isArray(query.matches) ? query.matches : [];
+    lines.push(`QUERY: ${query.query}`);
+    lines.push(`MATCHES: ${matches.length}/${query.total || matches.length}`);
+    for (const match of matches) {
+      const id = match.id ? `[${match.id}] ` : '';
+      const context = match.context ? ` (${match.context})` : '';
+      lines.push(`${id}<${match.tag}> ${match.text}${context}`);
+      if (!match.id && match.selector) lines.push(`  selector: ${match.selector}`);
+    }
+  } else {
+    lines.push(`DATA: ${JSON.stringify(value.data)}`);
+    // Non-HTML pages cannot be extracted structurally. Say so explicitly and show
+    // the raw text, otherwise a caller silently gets empty fields and assumes the
+    // selectors were simply wrong.
+    if (value.data && value.data.nonHtml === true) {
+      if (value.data.status) lines.push(`STATUS: ${value.data.status}`);
+      if (typeof value.data.text === 'string' && value.data.text.length > 0) {
+        lines.push('TEXT:');
+        lines.push(value.data.text);
+      }
     }
   }
   if (Array.isArray(value.errors) && value.errors.length > 0) {
@@ -1309,6 +1322,16 @@ const extractArgs = {
   additionalProperties: false,
   properties: {
     tab: tabParameter,
+    query: {
+      type: 'string',
+      description: 'Semantic text query. Returns the top matching elements with their context instead of requiring a CSS selector. Example: "ORD-0173".',
+    },
+    limit: {
+      type: 'integer',
+      minimum: 1,
+      maximum: 50,
+      description: 'Maximum semantic query matches to return. Default 12.',
+    },
     fields: {
       type: 'array',
       maxItems: 50,
@@ -1764,7 +1787,7 @@ export function apply(ctx) {
 
   ctx.tools.register({
     name: 'native_browser_extract',
-    description: 'Structured, token-efficient extraction from the current page. Returns only requested CSS-selector fields, one table, metadata, or JSON-LD instead of a full page dump. Use this for repetitive business data (prices, order ids, counts, rows) and cross-tab information gathering. Each field returns value plus name__count. Zero-match selectors automatically include page tag counts, element samples and class samples in ERRORS/data.debug. Optional saveAs stores the result in the in-memory workspace for later tabs.',
+    description: 'Structured, token-efficient extraction from the current page. Use query (for example "ORD-0173") to find the top matching elements and context without writing a CSS selector; use fields/table/meta/jsonld for precise structured extraction. Each field returns value plus name__count. Zero-match selectors include page tag counts, element samples and class samples in ERRORS/data.debug. Non-HTML pages fall back to text instead of failing. Optional saveAs stores the result in the in-memory workspace for later tabs.',
     parameters: extractArgs,
     isConcurrencySafe: () => false,
     output: {

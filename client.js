@@ -536,6 +536,96 @@ window.__ModuleLoader__.load({
       const data = { fields: {}, meta: {}, table: null, jsonld: [], ...(opts.debug === true ? { debug: { fields: {}, tables: [] } } : {}) };
       const errors = [];
 
+      // Semantic fast path: find the elements a human would point at, without
+      // making the caller guess a CSS selector. It promotes a matching cell to
+      // its nearest row/card/control so the result carries useful context.
+      const semanticQuery = typeof opts.query === 'string' ? clean(opts.query) : '';
+      if (semanticQuery) {
+        const queryLower = semanticQuery.toLowerCase();
+        const tokens = queryLower.split(/[\s,]+/).filter(Boolean);
+        const limit = Math.min(50, Math.max(1, Math.floor(Number(opts.limit) || 12)));
+        const skipTags = new Set(['BODY', 'HTML', 'HEAD', 'SCRIPT', 'STYLE', 'NOSCRIPT', 'TEMPLATE', 'LINK', 'META']);
+        const containerTags = new Set(['TR', 'LI', 'BUTTON', 'A', 'LABEL', 'ARTICLE', 'SECTION']);
+        const pathOf = (el) => {
+          const parts = [];
+          let node = el;
+          while (node && node.nodeType === 1) {
+            const parent = node.parentElement;
+            if (!parent) {
+              parts.unshift(node.tagName.toLowerCase());
+              break;
+            }
+            let index = 1;
+            for (let sibling = node.previousElementSibling; sibling; sibling = sibling.previousElementSibling) {
+              if (sibling.tagName === node.tagName) index += 1;
+            }
+            parts.unshift(`${node.tagName.toLowerCase()}:nth-of-type(${index})`);
+            node = parent;
+          }
+          return parts.join('>');
+        };
+        const seen = new Set();
+        const candidates = [];
+        const nodes = document.body ? Array.from(document.body.querySelectorAll('*')) : [];
+        let visited = 0;
+        for (const el of nodes) {
+          if (visited++ > 15000) break;
+          if (skipTags.has(el.tagName)) continue;
+          const text = clean(el.innerText || el.textContent || '').slice(0, 2000);
+          const attrs = ['aria-label', 'placeholder', 'title', 'name', 'id', 'data-testid']
+            .map((name) => el.getAttribute(name) || '')
+            .join(' ');
+          const haystack = `${text} ${attrs}`.toLowerCase();
+          const matches = haystack.includes(queryLower)
+            || (tokens.length > 0 && tokens.every((token) => haystack.includes(token)));
+          if (!matches) continue;
+          // Promote a cell to its row/card/control; keep the result actionable.
+          let target = el;
+          let parent = el.parentElement;
+          for (let depth = 0; depth < 4 && parent && parent !== document.body; depth += 1, parent = parent.parentElement) {
+            if (containerTags.has(parent.tagName)) target = parent;
+          }
+          const targetText = clean(target.innerText || target.textContent || '').slice(0, 500);
+          if (!targetText && !attrs) continue;
+          const selector = pathOf(target);
+          if (seen.has(selector)) continue;
+          seen.add(selector);
+          const context = [];
+          let ancestor = target.parentElement;
+          for (let depth = 0; depth < 3 && ancestor && ancestor !== document.body; depth += 1, ancestor = ancestor.parentElement) {
+            context.unshift(ancestor.tagName.toLowerCase());
+          }
+          let score = targetText.toLowerCase().includes(queryLower) ? 1000 : 0;
+          for (const token of tokens) if (haystack.includes(token)) score += 40;
+          if (attrs.toLowerCase().includes(queryLower)) score += 100;
+          score += Math.min(50, Math.max(0, 500 - targetText.length) / 20);
+          const entry = {
+            tag: target.tagName.toLowerCase(),
+            text: targetText,
+            selector,
+            context: context.join('>'),
+            score,
+          };
+          const dshId = target.getAttribute('data-dsh-id');
+          if (dshId) entry.id = dshId;
+          candidates.push(entry);
+        }
+        candidates.sort((left, right) => right.score - left.score || left.text.length - right.text.length);
+        data.query = {
+          query: semanticQuery,
+          total: candidates.length,
+          matches: candidates.slice(0, limit),
+        };
+        if (candidates.length === 0) errors.push(`query: 未找到匹配 "${semanticQuery}"`);
+        return {
+          url: location.href,
+          title: document.title,
+          revision: Number(window.__dshRevision) || 0,
+          data,
+          errors,
+        };
+      }
+
       function queryAll(selector) {
         const matches = [];
         function walk(doc, framePath, depth) {
@@ -2743,6 +2833,8 @@ window.__ModuleLoader__.load({
               let result;
               try {
                 result = await element.executeJavaScript(extractScript({
+                  query: args.query,
+                  limit: args.limit,
                   fields: args.fields,
                   table: args.table,
                   meta: args.meta,

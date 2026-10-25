@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Orders</title>
+<style>table{border-collapse:collapse}td,th{border:1px solid #ccc;padding:4px 8px}</style></head>
+<body>
+<h1>Orders</h1>
+<table id="orders"><thead><tr><th>Order</th><th>Customer</th><th>Status</th><th>Amount</th><th>Action</th></tr></thead><tbody></tbody></table>
+<script>
+  const body = document.querySelector('#orders tbody');
+  for (let i = 0; i < 200; i += 1) {
+    const row = document.createElement('tr');
+    const values = [
+      `ORD-${String(i + 1).padStart(4, '0')}`,
+      `Customer ${i + 1}`,
+      i === 2 ? 'ready' : 'Review',
+      `EUR ${((i + 1) * 1.13).toFixed(2)}`,
+      '<a href="#">Review</a>',
+    ];
+    row.innerHTML = values.map((value, index) => `<td>${index === 4 ? value : value}</td>`).join('');
+    body.appendChild(row);
+  }
+</script>
+</body></html>

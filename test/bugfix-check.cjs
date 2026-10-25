@@ -37,6 +37,7 @@ function check(name, ok, detail) {
 function startServer() {
   const files = new Map([
     ['/pointer-none.html', ['text/html; charset=utf-8', fs.readFileSync(path.join(FIXTURES, 'pointer-none.html'), 'utf8')]],
+    ['/orders.html', ['text/html; charset=utf-8', fs.readFileSync(path.join(FIXTURES, 'orders.html'), 'utf8')]],
     ['/plain-version.txt', ['text/plain; charset=utf-8', fs.readFileSync(path.join(FIXTURES, 'plain-version.txt'), 'utf8')]],
   ]);
   const server = http.createServer((request, response) => {
@@ -82,6 +83,14 @@ async function main() {
     check('nonhtml-extract-ok', extracted.ok === true, `ok=${extracted.ok}`);
     check('nonhtml-marked', extracted.data?.nonHtml === true, `nonHtml=${extracted.data?.nonHtml}`);
     check('nonhtml-text-returned', String(extracted.data?.text || '').includes('2.34.2'), 'contains 2.34.2');
+
+    // Semantic query fast path: no CSS selector needed for a row lookup.
+    await command('navigate', { url: `http://127.0.0.1:${PORT}/orders.html` });
+    const queried = await command('extract', { query: 'ORD-0173', limit: 5 });
+    const queryMatches = queried.data?.query?.matches || [];
+    check('semantic-query-hit', queryMatches.length === 1, `${queryMatches.length} matches`);
+    check('semantic-query-row-text', String(queryMatches[0]?.text || '').includes('ORD-0173'), queryMatches[0]?.text || '');
+    check('semantic-query-target', queryMatches[0]?.tag === 'tr', `tag=${queryMatches[0]?.tag}`);
   } finally {
     server.close();
   }
