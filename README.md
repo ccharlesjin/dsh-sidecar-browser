@@ -47,6 +47,9 @@ on a diet, everything visible and local**.
   assertions, structured `extract`, and failure diagnostics that tell you *why*
   an element was not clickable.
 - **Human in the loop.** Take over the browser at any time; the agent waits.
+- **Scope-independent IDs.** The same element keeps the same `dsh-*` id whether
+  you observe the full page or a subtree, so changing scope cannot silently
+  retarget a click.
 - **Local-first.** The bridge binds to `127.0.0.1:32002`; page data stays on your
   machine.
 - **Safety rails included.** Upload roots, token redaction, controlled download
@@ -239,6 +242,8 @@ DSH Sidecar Browser 反过来做：**动作优先、观察节食、全程可见�
 - **为动作而生，不只是读页面。** 批量 `act`、逐步 `expect` 断言、结构化 `extract`，
   失败时直接告诉你元素为什么点不了。
 - **人可以随时接管。** 你接管浏览器，Agent 等待；你交还，它继续。
+- **ID 不随 scope 漂移。** 同一个元素，无论全量观察还是 scope 子树，都保持同一个
+  `dsh-*` id；切换观察范围不会让点击悄悄落到邻居元素上。
 - **本地优先。** bridge 只监听 `127.0.0.1:32002`，页面数据不经过云端。
 - **自带安全边界。** 上传目录白名单、token 脱敏、受控下载目录、不自动打开文件。
 

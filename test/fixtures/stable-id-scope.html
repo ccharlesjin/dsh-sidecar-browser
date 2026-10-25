@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><title>Stable ID Scope Test</title>
+<style>
+  body { font: 16px sans-serif; margin: 24px; }
+  .toolbar button { display: inline-block; margin: 4px; }
+  .met-form-check { display: block; margin: 8px 0; }
+  .hidden-input { display: none; }
+</style></head>
+<body>
+  <h1>Stable ID Scope Test</h1>
+  <p>Full observe, label scope and checkbox scope must return the same id for each row.</p>
+  <div class="toolbar" id="toolbar"></div>
+  <form id="form">
+    <label class="met-form-check"><input type="checkbox" name="join"> 成员需报名入会</label>
+    <label class="met-form-check"><input type="checkbox" name="waiting"> 开启等候室</label>
+    <label class="met-form-check"><input type="checkbox" name="before-host"> 允许成员在主持人进会前加入</label>
+    <label class="met-form-check"><input type="checkbox" name="multi-device"> 允许成员多端入会</label>
+    <label class="met-form-check"><input type="checkbox" name="mute"> 成员入会时静音</label>
+    <label class="met-form-check"><input type="checkbox" name="watermark"> 开启文字水印</label>
+    <label class="met-form-check"><input type="checkbox" name="record"> 自动云录制</label>
+    <label class="met-form-check"><input type="checkbox" name="transcript"> 自动开启文字转写</label>
+    <label class="met-form-check"><input type="checkbox" name="camera"> 入会时开启摄像头</label>
+    <label class="met-form-check"><input type="checkbox" name="mic"> 入会时开启麦克风</label>
+    <label class="met-form-check"><input type="checkbox" name="phone"> 允许电话入会</label>
+    <label class="met-form-check"><input type="checkbox" name="chat"> 允许成员聊天</label>
+    <label class="met-form-check"><input type="checkbox" name="share"> 允许成员共享屏幕</label>
+  </form>
+  <div id="hidden-inputs"></div>
+  <script>
+    const toolbar = document.getElementById('toolbar');
+    for (let i = 0; i < 20; i += 1) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.textContent = `toolbar-${i}`;
+      toolbar.appendChild(button);
+    }
+    const hidden = document.getElementById('hidden-inputs');
+    for (let i = 0; i < 200; i += 1) {
+      const input = document.createElement('input');
+      input.type = 'checkbox';
+      input.className = 'hidden-input';
+      hidden.appendChild(input);
+    }
+  </script>
+</body></html>

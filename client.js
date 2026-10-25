@@ -238,15 +238,37 @@ window.__ModuleLoader__.load({
         return (h >>> 0).toString(36);
       };
 
-      function stableId(el, framePath, index) {
+      function elementPath(el) {
+        // Structural path inside the current document. It does not depend on
+        // traversal order, scope or offset, so the same element keeps the same
+        // id whether the caller observes the whole page or a subtree.
+        const parts = [];
+        let node = el;
+        while (node && node.nodeType === 1) {
+          const parent = node.parentElement;
+          if (!parent) {
+            parts.unshift(node.tagName.toLowerCase());
+            break;
+          }
+          let index = 1;
+          for (let sibling = node.previousElementSibling; sibling; sibling = sibling.previousElementSibling) {
+            if (sibling.tagName === node.tagName) index += 1;
+          }
+          parts.unshift(`${node.tagName.toLowerCase()}:nth-of-type(${index})`);
+          node = parent;
+        }
+        const root = el.getRootNode?.();
+        if (root && root.host) return `${elementPath(root.host)}>>>${parts.join('>')}`;
+        return parts.join('>');
+      }
+
+      function stableId(el, framePath) {
         // The signature deliberately never includes a live input value: restoring
         // form state, autofill or our own typing would otherwise re-key the element
         // and make a stale id point at a *different* field (which silently types
-        // into the wrong place). Array index is used instead, so ids also stay
-        // stable for duplicate elements such as list rows that render identical
-        // fields. Text content is still folded in for non-inputs, where it is a
-        // meaningful part of the identity.
-        const isField = el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT';
+        // into the wrong place). A structural path replaces the old traversal
+        // counter, so scope/offset cannot shift ids between observations. The path
+        // also distinguishes duplicate fields in repeated rows via nth-of-type.
         const sig = [
           el.tagName,
           el.getAttribute('id') || '',
@@ -256,7 +278,7 @@ window.__ModuleLoader__.load({
           el.getAttribute('type') || '',
           el.getAttribute('href') || '',
           el.getAttribute('placeholder') || '',
-          isField ? String(index ?? '') : clean(el.innerText || '').slice(0, 80),
+          elementPath(el),
         ].join('|');
         const prefix = framePath ? `f${framePath.replace(/\./g, '-')}-` : '';
         let id = `dsh-${prefix}${hash(sig)}`;
@@ -298,7 +320,7 @@ window.__ModuleLoader__.load({
               if (framePath) skippedFrames.add(framePath);
               continue;
             }
-            const id = stableId(el, framePath, seen);
+            const id = stableId(el, framePath);
             el.setAttribute('data-dsh-id', id);
             el.setAttribute('data-dsh-rev', String(Number(window.__dshRevision) || 0));
             const labelText = clean(
