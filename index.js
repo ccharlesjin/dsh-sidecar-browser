@@ -5,6 +5,7 @@
  * the narrow bridge on port 32002. No Playwright fallback remains.
  */
 import { appendFile, copyFile, readFile, stat, writeFile } from 'node:fs/promises';
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { get } from 'node:http';
@@ -22,7 +23,24 @@ const LOG = join(DATA_DIR, 'host.log');
 const RECIPES_FILE = join(DATA_DIR, 'recipes.json');
 const POLICY_FILE = join(DATA_DIR, 'policy.json');
 const DEFAULT_POLICY_FILE = join(HERE, 'policy.json');
+const toolSession = new AsyncLocalStorage();
 let recipes = null;
+
+function sessionIdFromExec(exec) {
+  const id = exec?.agent?.session?.id
+    ?? exec?.agent?.sessionId
+    ?? exec?.session?.id
+    ?? exec?.sessionId;
+  return typeof id === 'string' ? id : '';
+}
+
+function currentSessionId() {
+  return toolSession.getStore() || '';
+}
+
+function withSession(handler) {
+  return (args, exec) => toolSession.run(sessionIdFromExec(exec), () => handler(args, exec));
+}
 const browserWorkspace = new Map();
 
 try {
@@ -356,10 +374,15 @@ async function nativeCall(action, payload = {}) {
     if (policy.allowedDomains.length > 0) payload.allowedDomains = policy.allowedDomains;
   }
   await ensureNativeBridge();
+  const sessionId = currentSessionId();
   const response = await fetch(`${NATIVE_URL}/command`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ action, args: payload }),
+    body: JSON.stringify({
+      action,
+      args: payload,
+      ...(sessionId ? { sessionId } : {}),
+    }),
   });
   const data = await response.json();
   if (!response.ok || data.ok === false) {
@@ -402,7 +425,9 @@ async function nativeCall(action, payload = {}) {
 
 async function nativeTabs() {
   await ensureNativeBridge();
-  const response = await fetch(`${NATIVE_URL}/tabs`);
+  const sessionId = currentSessionId();
+  const query = sessionId ? `?sessionId=${encodeURIComponent(sessionId)}` : '';
+  const response = await fetch(`${NATIVE_URL}/tabs${query}`);
   const data = await response.json();
   if (!response.ok || data.ok === false) {
     throw new Error(data.error || 'failed to list AI browser tabs');
@@ -412,6 +437,7 @@ async function nativeTabs() {
       id: String(tab.id ?? ''),
       title: String(tab.title ?? ''),
       url: redactUrlForOutput(String(tab.url ?? '')),
+      sessionId: String(tab.sessionId ?? ''),
       active: tab.active === true,
       takeover: tab.takeover === true,
       connected: tab.connected === true,
@@ -1622,6 +1648,7 @@ const tabsSchema = {
           id: { type: 'string' },
           title: { type: 'string' },
           url: { type: 'string' },
+          sessionId: { type: 'string' },
           active: { type: 'boolean' },
           takeover: { type: 'boolean' },
           connected: { type: 'boolean' },
@@ -1634,7 +1661,9 @@ const tabsSchema = {
 };
 
 function renderTabs(value) {
-  if (!value.tabs || value.tabs.length === 0) return 'No AI browser tabs are connected.';
+  if (!value.tabs || value.tabs.length === 0) {
+    return 'No AI browser tabs in this conversation. Open the right-sidebar AI browser in this conversation first.';
+  }
   return value.tabs.map((tab) => {
     const flags = [
       tab.active ? 'active' : '',
@@ -1685,14 +1714,22 @@ function renderPolicy(value) {
 }
 
 export function apply(ctx) {
+  const registerTool = (definition) => {
+    const execute = definition?.execute;
+    if (typeof execute === 'function') {
+      definition.execute = withSession(execute);
+    }
+    return ctx.tools.register(definition);
+  };
+
   ctx.effect(() => {
     log('host loaded');
     ensureNativeBridge().catch((error) => log(`native bridge error: ${error.message || error}`));
   }, 'sidecar-browser.service');
 
-  ctx.tools.register({
+  registerTool({
     name: 'native_browser_tabs',
-    description: 'Manage AI browser tabs in the DSH right sidebar. action="list" (default) returns every tab with id, URL, active/takeover state. action="new" opens a new about:blank tab and returns the updated list. Pass a tab id to actions that support the optional tab argument; omit it to use the active tab.',
+    description: 'Manage AI browser tabs in the DSH right sidebar for this conversation. action="list" (default) returns this session\'s tabs with id, URL, active/takeover state. action="new" opens a new about:blank tab in this session and returns the updated list. Pass a tab id to actions that support the optional tab argument; omit it to use this session\'s active tab.',
     parameters: tabsArgs,
     isConcurrencySafe: () => true,
     output: {
@@ -1707,7 +1744,7 @@ export function apply(ctx) {
     },
   });
 
-  ctx.tools.register(tool(
+  registerTool(tool(
     'native_browser_navigate',
     'Open an http/https URL in the native DSH sidebar browser (the actual Electron webview, not a screenshot). The user can take over this browser at any time; if they have, navigation is refused until they hand control back. Snapshot defaults to minimal; set snapshot=none for metadata only or standard/full when you need the page structure. For history back or reload use act([{action:"back"}]) / act([{action:"reload"}]).',
     {
@@ -1725,7 +1762,7 @@ export function apply(ctx) {
     nativeCall,
   ));
 
-  ctx.tools.register(tool(
+  registerTool(tool(
     'native_browser_click',
     'Click a page element in the native DSH sidebar webview. Prefer a dsh-* id returned by native_browser_observe; a CSS selector is also accepted. Elements inside accessible iframes are found recursively. Only a page-level click is performed. Returns CHANGED: yes/no after comparing URL, title, and DOM before/after; CHANGED: no means the click was accepted but the page did not visibly change. Snapshot defaults to minimal; set snapshot=none for metadata only. If the user has taken over, the action is refused.',
     {
@@ -1743,7 +1780,7 @@ export function apply(ctx) {
     nativeCall,
   ));
 
-  ctx.tools.register(tool(
+  registerTool(tool(
     'native_browser_hover',
     'Hover a page element in the native DSH sidebar webview to open hover-driven menus, tooltips, or secondary navigation. Prefer a dsh-* id returned by native_browser_observe; a CSS selector is also accepted. Uses real mouse input when the core bridge exposes it, with synthetic mouseenter/mouseover fallback. Returns CHANGED: yes/no and a snapshot (default minimal).',
     {
@@ -1761,7 +1798,7 @@ export function apply(ctx) {
     nativeCall,
   ));
 
-  ctx.tools.register({
+  registerTool({
     name: 'native_browser_highlight',
     description: 'Draw a visible orange outline around a page element so the user can audit what the AI is about to act on. Accepts a dsh-* id or CSS selector. clear=true removes all highlights. This is visual only; it does not click or modify page data.',
     parameters: highlightArgs,
@@ -1776,7 +1813,7 @@ export function apply(ctx) {
     },
   });
 
-  ctx.tools.register(tool(
+  registerTool(tool(
     'native_browser_type',
     'Type into an input, textarea, or contenteditable element in the native DSH sidebar webview. Prefer a dsh-* id returned by native_browser_observe. Elements inside accessible iframes are found recursively. Set submit=true to submit the form or press Enter; submitted actions report CHANGED: yes/no. Snapshot defaults to minimal; set snapshot=none for metadata only. If the user has taken over, the action is refused.',
     {
@@ -1796,7 +1833,7 @@ export function apply(ctx) {
     nativeCall,
   ));
 
-  ctx.tools.register(tool(
+  registerTool(tool(
     'native_browser_observe',
     'Read or diff the native DSH sidebar webview. This is the full-snapshot and delta interface. Use when: you need the complete current structure, are watching a page change, confirming UNCHANGED cheaply, or paging through structure. Do not use for one or two fields (use extract) or multi-step actions (use act+expect). Every observe stores a baseline keyed by URL + mode/scope/limit/offset/textLimit; passing sinceRevision from the matching baseline returns only added/removed/changed elements, or UNCHANGED. Supports mode=minimal/standard/full, scope=<CSS selector>, limit/offset, textLimit. mode="standard" is the full read; mode="minimal" is the token-efficient default for repeated checks.',
     observeArgs,
@@ -1805,7 +1842,7 @@ export function apply(ctx) {
     nativeCall,
   ));
 
-  ctx.tools.register({
+  registerTool({
     name: 'native_browser_extract',
     description: 'Structured, token-efficient extraction from the current page. Use query (for example "ORD-0173") to find the top matching elements and context without writing a CSS selector; use fields/table/meta/jsonld for precise structured extraction. Each field returns value plus name__count. Zero-match selectors include page tag counts, element samples and class samples in ERRORS/data.debug. Non-HTML pages fall back to text instead of failing. Optional saveAs stores the result in the in-memory workspace for later tabs.',
     parameters: extractArgs,
@@ -1832,7 +1869,7 @@ export function apply(ctx) {
     },
   });
 
-  ctx.tools.register({
+  registerTool({
     name: 'native_browser_console',
     description: 'Read recent page console messages and JavaScript errors captured from the native webview. Use this when an action reports CHANGED: no, a page stays blank, or a submit fails silently. Optional clear empties the buffer; level filters debug/info/warning/error; limit keeps the newest entries.',
     parameters: consoleArgs,
@@ -1850,7 +1887,7 @@ export function apply(ctx) {
     },
   });
 
-  ctx.tools.register({
+  registerTool({
     name: 'native_browser_network',
     description: 'Read the bounded, read-only network buffer captured by the native browser guest: method, redacted URL, resource type, HTTP status or error, cache flag and time. Headers, bodies and credentials are never stored. Use this to diagnose blank pages, failed API calls and 4xx/5xx responses. Optional type/status filters, limit and clear.',
     parameters: networkArgs,
@@ -1889,7 +1926,7 @@ export function apply(ctx) {
     },
   });
 
-  ctx.tools.register({
+  registerTool({
     name: 'native_browser_screenshot',
     description: 'Capture the native browser guest as a PNG: viewport by default, fullPage=true for the whole scrollable page, or target to crop one element. Saves the file locally and attaches it when the active model route declares image input; otherwise returns the path as text.',
     parameters: screenshotArgs,
@@ -1940,7 +1977,7 @@ export function apply(ctx) {
     },
   });
 
-  ctx.tools.register({
+  registerTool({
     name: 'native_browser_upload',
     description: 'Select local files for an <input type="file"> by reading them in the Host and assigning File objects in the page. Paths are restricted to policy uploadRoots (or the workspace). Max 5 files / 5 MB total. This does not click the final submit button.',
     parameters: uploadArgs,
@@ -1985,7 +2022,7 @@ export function apply(ctx) {
     },
   });
 
-  ctx.tools.register({
+  registerTool({
     name: 'native_browser_drop',
     description: 'Dispatch dragenter/dragover/drop with files or MIME-typed data onto a drop zone. Use this for upload areas that never open a file chooser. Paths are restricted to policy uploadRoots; max 5 files / 5 MB.',
     parameters: dropArgs,
@@ -2038,7 +2075,7 @@ export function apply(ctx) {
     },
   });
 
-  ctx.tools.register({
+  registerTool({
     name: 'native_browser_downloads',
     description: 'List files downloaded by the native browser guest. Files are saved under the OS Downloads/DSH Browser directory with sanitized names and no overwrite. Returns filename, path, state, size, mime and source URL. clear=true clears the history but never deletes files.',
     parameters: downloadsArgs,
@@ -2065,7 +2102,7 @@ export function apply(ctx) {
     },
   });
 
-  ctx.tools.register({
+  registerTool({
     name: 'native_browser_workspace',
     description: 'In-memory cross-tab workspace. native_browser_extract can saveAs a result, then another tab can retrieve it by key without re-reading the source page. Supports list, get, delete, clear. State is lost when the Host reloads.',
     parameters: workspaceArgs,
@@ -2096,7 +2133,7 @@ export function apply(ctx) {
     },
   });
 
-  ctx.tools.register(tool(
+  registerTool(tool(
     'native_browser_act',
     'Preferred entry point for multi-step work: run page actions sequentially in one call, then return one final snapshot plus per-step status. Recipes: query a value -> act([navigate, extract], snapshot=none); submit a form -> act([type, click], expect); history -> act([back]) or act([reload]); confirm a change -> observe(sinceRevision) or act expect; visually verify -> screenshot(target). Supported actions: click, type, hover, navigate, back, reload, read, observe, extract. snapshot defaults to minimal: pass snapshot=none for pure navigate/extract recipes and delta for same-URL diffs. Sub-actions use snapshot=none internally; stopOnError defaults true. Each action can set expect (url/title/text/element) and timeoutMs. extract supports fields/table/index/meta/jsonld/debug. Failed steps report code and revision diagnostics.',
     actArgs,
@@ -2105,7 +2142,7 @@ export function apply(ctx) {
     nativeCall,
   ));
 
-  ctx.tools.register({
+  registerTool({
     name: 'native_browser_recipe',
     description: 'Manage one saved deterministic recipe. action="list" (default) lists recipes; "save" stores click/hover/navigate/back/reload steps (type-with-text is rejected); "run" checks the URL and executes as one act batch; "delete" removes a name. Prefer act for one-off work and recipes only for repeatable flows.',
     parameters: recipeArgs,
@@ -2132,7 +2169,7 @@ export function apply(ctx) {
     },
   });
 
-  ctx.tools.register({
+  registerTool({
     name: 'native_browser_task',
     description: 'Declarative task runner. action="run" performs optional navigation then sequential steps, each with actions plus an optional expect block; verification retries without repeating actions. action="status" lists recent tasks or one taskId. Prefer act for small one-off batches; use task for repeatable multi-step verification.',
     parameters: taskArgs,
@@ -2148,7 +2185,7 @@ export function apply(ctx) {
     },
   });
 
-  ctx.tools.register({
+  registerTool({
     name: 'native_browser_policy',
     description: 'Show the effective AI browser safety policy: allowed domains, tools/keywords that require user approval, and the fixed download/popup/dialog behavior. Edit policy.json in the plugin directory to change it.',
     parameters: noArgs,

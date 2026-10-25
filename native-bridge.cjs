@@ -52,6 +52,14 @@ function pickActiveId() {
   return activeClientId;
 }
 
+function pickSessionId(sessionId) {
+  if (typeof sessionId !== 'string' || sessionId.length === 0) return null;
+  const matches = connectedClients().filter((client) => client.sessionId === sessionId);
+  if (matches.length === 0) return null;
+  const active = matches.find((client) => client.id === activeClientId);
+  return (active || matches[matches.length - 1]).id;
+}
+
 function flush(client) {
   if (!client || client.queue.length === 0 || client.waiter === null) return;
   const command = client.queue.shift();
@@ -67,6 +75,7 @@ function clientState(client) {
     id: client.id,
     title: client.title || 'AI 浏览器',
     url: client.url || '',
+    sessionId: client.sessionId || '',
     active: client.id === activeClientId,
     takeover: client.takeover === true,
     connected: isConnected(client),
@@ -93,10 +102,14 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (req.method === 'GET' && url.pathname === '/tabs') {
+    const sessionId = String(url.searchParams.get('sessionId') || '');
+    const visible = sessionId
+      ? [...clients.values()].filter((client) => client.sessionId === sessionId)
+      : [...clients.values()];
     sendJson(res, 200, {
       ok: true,
-      tabs: [...clients.values()].map(clientState),
-      active: pickActiveId(),
+      tabs: visible.map(clientState),
+      active: sessionId ? pickSessionId(sessionId) : pickActiveId(),
     });
     return;
   }
@@ -115,6 +128,7 @@ const server = http.createServer(async (req, res) => {
           id,
           title: 'AI 浏览器',
           url: '',
+          sessionId: '',
           takeover: false,
           lastSeen: Date.now(),
           waiter: null,
@@ -124,6 +138,7 @@ const server = http.createServer(async (req, res) => {
       }
       client.lastSeen = Date.now();
       if (typeof body.title === 'string' && body.title.length > 0) client.title = body.title;
+      if (typeof body.sessionId === 'string') client.sessionId = body.sessionId;
       activeClientId = id;
       sendJson(res, 200, { ok: true, active: activeClientId });
     } catch (error) {
@@ -166,6 +181,7 @@ const server = http.createServer(async (req, res) => {
 
   if (req.method === 'GET' && url.pathname === '/next') {
     const id = String(url.searchParams.get('clientId') || '');
+    const sessionId = String(url.searchParams.get('sessionId') || '');
     let client = clients.get(id);
     if (!client) {
       // A bridge restart drops the HTTP long-poll; the tab keeps polling with
@@ -174,6 +190,7 @@ const server = http.createServer(async (req, res) => {
         id,
         title: 'AI 浏览器',
         url: '',
+        sessionId: '',
         takeover: false,
         lastSeen: Date.now(),
         waiter: null,
@@ -182,6 +199,7 @@ const server = http.createServer(async (req, res) => {
       clients.set(id, client);
     }
     client.lastSeen = Date.now();
+    if (sessionId) client.sessionId = sessionId;
     if (client.queue.length > 0) {
       sendJson(res, 200, client.queue.shift());
       return;
@@ -253,7 +271,23 @@ const server = http.createServer(async (req, res) => {
       }
 
       const requested = String(body.clientId || body.args?.tab || '');
-      const targetId = requested || pickActiveId();
+      const sessionId = String(body.sessionId || '');
+      let targetId;
+      if (requested) {
+        targetId = requested;
+      } else if (sessionId) {
+        targetId = pickSessionId(sessionId);
+        if (!targetId) {
+          sendJson(res, 503, {
+            ok: false,
+            code: 'NO_SESSION_TAB',
+            error: '当前会话还没有已连接的 AI 浏览器标签；请先在这个对话里打开右侧 AI 浏览器',
+          });
+          return;
+        }
+      } else {
+        targetId = pickActiveId();
+      }
       const client = clients.get(targetId);
       if (!isConnected(client)) {
         sendJson(res, 503, { ok: false, error: requested ? `AI 浏览器标签 ${requested} 未连接` : '没有已连接的 AI 浏览器标签' });

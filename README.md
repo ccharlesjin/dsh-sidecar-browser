@@ -51,6 +51,8 @@ on a diet, everything visible and local**.
   observe time with the label to click instead; non-HTML documents return text
   from `extract` instead of throwing.
 - **Human in the loop.** Take over the browser at any time; the agent waits.
+- **Session-scoped tabs.** Every conversation gets its own browser tab; tools
+  never fall back to another conversation's active page.
 - **Scope-independent IDs.** The same element keeps the same `dsh-*` id whether
   you observe the full page or a subtree, so changing scope cannot silently
   retarget a click.
@@ -254,6 +256,8 @@ DSH Sidecar Browser 反过来做：**动作优先、观察节食、全程可见�
 - **障碍提前暴露。** `pointer-events:none` 的输入框在观察阶段就会提示应该点哪个
   label；非 HTML 文档的 `extract` 会回退返回文本，而不是直接报错。
 - **人可以随时接管。** 你接管浏览器，Agent 等待；你交还，它继续。
+- **标签按会话隔离。** 每个对话使用自己的 AI 浏览器标签，工具不会回退到其他对话的
+  页面。
 - **ID 不随 scope 漂移。** 同一个元素，无论全量观察还是 scope 子树，都保持同一个
   `dsh-*` id；切换观察范围不会让点击悄悄落到邻居元素上。
 - **本地优先。** bridge 只监听 `127.0.0.1:32002`，页面数据不经过云端。

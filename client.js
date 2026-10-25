@@ -1700,6 +1700,14 @@ window.__ModuleLoader__.load({
         () => (globalThis.crypto?.randomUUID ? globalThis.crypto.randomUUID() : `ai-${Date.now()}-${Math.random().toString(16).slice(2)}`),
         [],
       );
+      const currentSessionId = () => {
+        try {
+          return hostRef.current?.closest?.('[data-sidebar-right-session]')
+            ?.getAttribute('data-sidebar-right-session') || '';
+        } catch {
+          return '';
+        }
+      };
       const hostRef = React.useRef(null);
       const webviewRef = React.useRef(null);
       const consoleBufferRef = React.useRef([]);
@@ -2934,7 +2942,7 @@ window.__ModuleLoader__.load({
         async function poll() {
           while (!stopped && !disposed) {
             try {
-              const response = await fetch(`${BRIDGE_URL}/next?clientId=${encodeURIComponent(clientId)}`, { cache: 'no-store' });
+              const response = await fetch(`${BRIDGE_URL}/next?clientId=${encodeURIComponent(clientId)}&sessionId=${encodeURIComponent(currentSessionId())}`, { cache: 'no-store' });
               if (response.status === 204) continue;
               if (!response.ok) {
                 await wait(700);
@@ -2981,7 +2989,7 @@ window.__ModuleLoader__.load({
               void hookPageErrors();
               void (async () => {
                 try {
-                  await bridgePost('/register', { clientId, title: 'AI 浏览器' });
+                  await bridgePost('/register', { clientId, title: 'AI 浏览器', sessionId: currentSessionId() });
                 } catch {
                   // poll will retry; bridge may still be starting
                 }

@@ -1,6 +1,6 @@
 {
   "name": "dsh-sidecar-browser",
-  "version": "1.1.6",
+  "version": "1.1.7",
   "description": "DSH Sidecar Browser: a model-driven companion browser in the DeepSeek Harness right sidebar.",
   "license": "MIT",
   "author": "DSH Sidecar Browser contributors",
@@ -55,7 +55,8 @@
   "scripts": {
     "check": "node --check index.js && node --check client.js && node --check native-bridge.cjs",
     "test:scope": "node test/stable-id-scope.cjs",
-    "test:bugs": "node test/bugfix-check.cjs"
+    "test:bugs": "node test/bugfix-check.cjs",
+    "test:session": "node test/session-check.cjs"
   },
   "dsh": {
     "bundle": {
