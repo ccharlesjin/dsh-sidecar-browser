@@ -194,9 +194,11 @@ https://github.com/ccharlesjin/dsh-sidecar-core
 git clone https://github.com/ccharlesjin/dsh-sidecar-core.git
 cd dsh-sidecar-core
 npm install
-node scripts/build.mjs --app-asar "E:\Tools\Deepseek_Harness\resources\app.asar" --version 0.2.1-rc.3
-powershell -ExecutionPolicy Bypass -File .\scripts\install.ps1 -PatchedAsar .\dist\app.asar.patched
+powershell -ExecutionPolicy Bypass -File .\scripts\update.ps1
 ```
+
+`update.ps1` pulls the latest patch repo, detects the installed DSH version,
+builds the matching version folder, and installs it with a backup.
 
 Read that repository's README first: it modifies the DSH main process and makes
 a timestamped backup before installing.
@@ -412,9 +414,11 @@ https://github.com/ccharlesjin/dsh-sidecar-core
 git clone https://github.com/ccharlesjin/dsh-sidecar-core.git
 cd dsh-sidecar-core
 npm install
-node scripts/build.mjs --app-asar "E:\Tools\Deepseek_Harness\resources\app.asar" --version 0.2.1-rc.3
-powershell -ExecutionPolicy Bypass -File .\scripts\install.ps1 -PatchedAsar .\dist\app.asar.patched
+powershell -ExecutionPolicy Bypass -File .\scripts\update.ps1
 ```
+
+`update.ps1` pulls the latest patch repo, detects the installed DSH version,
+builds the matching version folder, and installs it with a backup.
 
 安装前先读该仓库 README：它会修改 DSH 主进程，但会先创建带时间戳的备份。
 
