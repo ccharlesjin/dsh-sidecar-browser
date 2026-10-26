@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "updatedAt": "2026-10-26T01:20:00Z",
+  "versions": {
+    "0.2.1-rc.3": {
+      "tested": true,
+      "patchFiles": ["main.patch", "preload.patch"],
+      "dshVersion": "0.2.1-rc.3",
+      "patchedMainSha256": "ec4a1605a6b5d4fc6584691d75d0998d0b0aa1f81bbddf4b3b432a301c9122b7",
+      "patchedPreloadSha256": "20ab111eb56604f7f02200074a22387a15fee4e608147f1dbbc14db4c92544ad",
+      "notes": "input/network/downloads/screenshot + session-configure changes"
+    }
+  }
+}

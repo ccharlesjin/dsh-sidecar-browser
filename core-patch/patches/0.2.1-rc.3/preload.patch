@@ -1,0 +1,26 @@
+
+
+--- a/lib/preload-app.cjs
++++ b/lib/preload-app.cjs
+@@ -16,6 +16,10 @@ const DESKTOP_IPC = {
+ 	bootFailed: "dsh-desktop:boot-failed",
+ 	browserAcquire: "dsh-desktop:browser-acquire",
+ 	browserRelease: "dsh-desktop:browser-release",
++	browserInput: "dsh-desktop:browser-input",
++	browserNetwork: "dsh-desktop:browser-network",
++	browserDownloads: "dsh-desktop:browser-downloads",
++	browserScreenshot: "dsh-desktop:browser-screenshot",
+ 	browserOpenRequested: "dsh-desktop:browser-open-requested",
+ 	directoryPick: "dsh-desktop:directory-pick",
+ 	deviceInfo: "dsh-desktop:device-info",
+@@ -769,6 +773,10 @@ function createDesktopBrowserBridge() {
+ 	return {
+ 		acquire: (workspace) => electron.ipcRenderer.invoke(DESKTOP_IPC.browserAcquire, workspace),
+ 		release: (lease) => electron.ipcRenderer.invoke(DESKTOP_IPC.browserRelease, lease),
++		input: (lease, event) => electron.ipcRenderer.invoke(DESKTOP_IPC.browserInput, lease, event),
++		network: (lease, options) => electron.ipcRenderer.invoke(DESKTOP_IPC.browserNetwork, lease, options),
++		downloads: (lease, options) => electron.ipcRenderer.invoke(DESKTOP_IPC.browserDownloads, lease, options),
++		screenshot: (lease, options) => electron.ipcRenderer.invoke(DESKTOP_IPC.browserScreenshot, lease, options),
+ 		onOpenRequested(lease, listener) {
+ 			let callbacks = listeners.get(lease);
+ 			if (callbacks === void 0) {
