@@ -183,6 +183,24 @@ console and workspaces still work. Tools that need the core return a clear error
 The core patch is **version-specific**. Never install an `app.asar.patched` from a
 different DSH release; rebuild it after each DSH update.
 
+The patch lives in a separate repository with source diffs and explicit
+build/install/restore scripts — no prebuilt `app.asar` and no `postinstall`:
+
+```text
+https://github.com/ccharlesjin/dsh-sidecar-core
+```
+
+```powershell
+git clone https://github.com/ccharlesjin/dsh-sidecar-core.git
+cd dsh-sidecar-core
+npm install
+node scripts/build.mjs --app-asar "E:\Tools\Deepseek_Harness\resources\app.asar" --version 0.2.1-rc.3
+powershell -ExecutionPolicy Bypass -File .\scripts\install.ps1 -PatchedAsar .\dist\app.asar.patched
+```
+
+Read that repository's README first: it modifies the DSH main process and makes
+a timestamped backup before installing.
+
 ### Safety defaults
 
 - Uploads and drag/drop are restricted by `policy.json → uploadRoots`
@@ -382,6 +400,23 @@ native_browser_policy      当前安全策略
 
 core patch 和 DSH 版本绑定，**不要**把其他版本的 `app.asar.patched` 直接装到当前
 版本；每次 DSH 更新后都要重新构建。
+
+补丁源码、构建脚本和安装/恢复脚本在独立仓库，不包含预构建 `app.asar`，也不会
+通过 `postinstall` 自动修改主程序：
+
+```text
+https://github.com/ccharlesjin/dsh-sidecar-core
+```
+
+```powershell
+git clone https://github.com/ccharlesjin/dsh-sidecar-core.git
+cd dsh-sidecar-core
+npm install
+node scripts/build.mjs --app-asar "E:\Tools\Deepseek_Harness\resources\app.asar" --version 0.2.1-rc.3
+powershell -ExecutionPolicy Bypass -File .\scripts\install.ps1 -PatchedAsar .\dist\app.asar.patched
+```
+
+安装前先读该仓库 README：它会修改 DSH 主进程，但会先创建带时间戳的备份。
 
 ### 安全默认值
 
