@@ -1734,6 +1734,7 @@ window.__ModuleLoader__.load({
         let bridge = null;
         let lease = '';
         let element = null;
+        let detachOpenRequest = null;
         const observeBaselines = new Map();
 
         const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -2980,6 +2981,29 @@ window.__ModuleLoader__.load({
             hostRef.current.appendChild(element);
             webviewRef.current = element;
 
+            const openInCurrentTab = (url) => {
+              if (disposed) return;
+              try {
+                const href = new URL(String(url), element.getURL()).href;
+                if (!/^https?:/i.test(href)) return;
+                setAddress(href);
+                element.loadURL(href).catch(() => {});
+              } catch {
+                // ignore malformed popup targets
+              }
+            };
+            // Prefer the core's browserOpenRequested channel; it covers
+            // target="_blank", window.open and form submissions with a target.
+            if (typeof bridge.onOpenRequested === 'function') {
+              detachOpenRequest = bridge.onOpenRequested(lease, openInCurrentTab);
+            } else {
+              // Fallback for a core build without the open-request channel.
+              element.addEventListener('did-create-window', (event) => {
+                const url = event?.url || event?.target?.url;
+                if (url) openInCurrentTab(url);
+              });
+            }
+
             element.addEventListener('dom-ready', () => {
               if (disposed) return;
               setStatus('就绪');
@@ -3069,6 +3093,7 @@ window.__ModuleLoader__.load({
           disposed = true;
           stopped = true;
           bridgePost('/unregister', { clientId }, true).catch(() => {});
+          try { detachOpenRequest?.(); } catch { /* already gone */ }
           webviewRef.current = null;
           element?.remove();
           if (bridge && lease) bridge.release(lease).catch(() => {});

@@ -124,7 +124,7 @@ await native_browser_extract({ query: "ORD-0173", limit: 5 });
 
 | Area | What you get |
 |---|---|
-| Navigation | tabs, history, back/reload, popup policy, user takeover |
+| Navigation | tabs, history, back/reload, target="_blank" in current tab, user takeover |
 | Observation | budgets, interactive-only mode with context, deltas, scoped reads, revisions |
 | Actions | click, type, hover, batched act, assertions, retries |
 | Extraction | semantic query, CSS fields, tables, meta, JSON-LD, debug hints |
@@ -341,7 +341,7 @@ await native_browser_extract({ query: "ORD-0173", limit: 5 });
 
 | 能力 | 说明 |
 |---|---|
-| 导航 | 标签页、历史、后退/刷新、弹窗策略、用户接管 |
+| 导航 | 标签页、历史、后退/刷新、target="_blank" 当前标签打开、用户接管 |
 | 观察 | 多档快照、interactive 模式（仅动作元素 + 上下文）、增量 diff、范围读取 |
 | 动作 | 点击、输入、悬停、批量 act、断言、重试 |
 | 提取 | 语义 query、CSS 字段、表格、meta、JSON-LD、debug |
