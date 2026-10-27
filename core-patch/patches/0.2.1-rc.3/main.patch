@@ -35,7 +35,7 @@
  		});
  		return {
  			lease,
-@@ -10533,6 +10543,347 @@ var DesktopBrowserGuests = class {
+@@ -10533,6 +10543,391 @@ var DesktopBrowserGuests = class {
  			await destroyed;
  		}
  	}
@@ -100,17 +100,43 @@
 +				}
 +			}
 +			if (lease === void 0) return;
++			const captured = capture.get(details.id) || {};
 +			const entry = {
 +				id: ++this.networkSeq,
 +				method: String(details.method || "GET"),
 +				url: redact(details.url),
 +				type: String(details.resourceType || "other"),
 +				time: new Date().toISOString(),
++				...captured,
 +				...extra
 +			};
++			capture.delete(details.id);
 +			lease.network.push(entry);
 +			if (lease.network.length > 300) lease.network.splice(0, lease.network.length - 300);
 +		};
++		const capture = /* @__PURE__ */ new Map();
++		const redactHeaders = (headers) => {
++			const result = {};
++			for (const [name, value] of Object.entries(headers || {})) {
++				const key = String(name).toLowerCase();
++				const secret = /authorization|cookie|set-cookie|token|secret|api[_-]?key|proxy-authorization|password/.test(key);
++				result[name] = secret ? "***" : (Array.isArray(value) ? value.join(", ") : String(value)).slice(0, 1000);
++				if (Object.keys(result).length >= 50) break;
++			}
++			return result;
++		};
++		browserSession.webRequest.onBeforeSendHeaders({ urls: ["<all_urls>"] }, (details, callback) => {
++			const item = capture.get(details.id) || {};
++			item.requestHeaders = redactHeaders(details.requestHeaders);
++			capture.set(details.id, item);
++			callback({});
++		});
++		browserSession.webRequest.onHeadersReceived({ urls: ["<all_urls>"] }, (details, callback) => {
++			const item = capture.get(details.id) || {};
++			item.responseHeaders = redactHeaders(details.responseHeaders);
++			capture.set(details.id, item);
++			callback({});
++		});
 +		browserSession.webRequest.onCompleted({ urls: ["<all_urls>"] }, (details) => {
 +			record(details, {
 +				status: Number(details.statusCode) || 0,
@@ -131,7 +157,25 @@
 +		if (typeof id !== "string") throw new Error("desktop browser: invalid guest lease");
 +		const lease = this.leases.get(id);
 +		if (lease === void 0 || lease.owner !== owner) throw new Error("desktop browser: guest belongs to another window");
-+		let requests = Array.isArray(lease.network) ? lease.network.slice() : [];
++		const all = Array.isArray(lease.network) ? lease.network.slice() : [];
++		const summary = (entry) => {
++			const { requestHeaders, responseHeaders, ...rest } = entry;
++			return rest;
++		};
++		if (options.index !== void 0) {
++			const index = Math.max(0, Math.floor(Number(options.index) || 0));
++			const entry = all[index];
++			if (entry === void 0) throw new Error(`desktop browser: network index ${index} is out of range`);
++			const part = String(options.part || "request-headers");
++			if (part === "request-headers") {
++				return { requests: [summary(entry)], total: all.length, ignored: 0, detail: { index, part, value: entry.requestHeaders || {} } };
++			}
++			if (part === "response-headers") {
++				return { requests: [summary(entry)], total: all.length, ignored: 0, detail: { index, part, value: entry.responseHeaders || {} } };
++			}
++			throw Object.assign(new Error("desktop browser: response/request bodies are not captured by this core build; use request-headers or response-headers"), { code: "NETWORK_BODY_UNAVAILABLE" });
++		}
++		let requests = all.slice();
 +		if (typeof options.type === "string" && options.type.length > 0) {
 +			const types = new Set(options.type.split(",").map((value) => value.trim().toLowerCase()).filter(Boolean));
 +			requests = requests.filter((entry) => types.has(String(entry.type).toLowerCase()));
@@ -146,7 +190,7 @@
 +		requests = requests.slice(-limit);
 +		const total = Array.isArray(lease.network) ? lease.network.length : 0;
 +		if (options.clear === true) lease.network.length = 0;
-+		return { requests, total, ignored };
++		return { requests: requests.map(summary), total, ignored };
 +	}
 +	/** Capture one owned guest as PNG: viewport by default, or a CDP clip/full page. */
 +	async screenshot(owner, id, options = {}) {
@@ -383,7 +427,7 @@
  	/**
  	* Install attachment checks before the application document can create a webview.
  	* @param window - primary application window.
-@@ -10629,9 +10980,7 @@ var DesktopBrowserGuests = class {
+@@ -10629,9 +11024,7 @@ var DesktopBrowserGuests = class {
  		browserSession.setDisplayMediaRequestHandler((_request, callback) => {
  			callback({});
  		});
@@ -394,7 +438,7 @@
  		browserSession.webRequest.onBeforeRequest((details, callback) => {
  			const url = new URL(details.url);
  			callback({ cancel: [
-@@ -10645,6 +10994,7 @@ var DesktopBrowserGuests = class {
+@@ -10645,6 +11038,7 @@ var DesktopBrowserGuests = class {
  				"blob:"
  			].includes(url.protocol) });
  		});
@@ -402,7 +446,7 @@
  	}
  	allowedNavigation(value) {
  		if (!URL.canParse(value)) return false;
-@@ -12444,6 +12794,22 @@ async function main() {
+@@ -12444,6 +12838,22 @@ async function main() {
  		assertProductSender(event);
  		return browserGuests.release(event.sender, lease);
  	});

@@ -22,7 +22,8 @@ actions, assertions, upload/drop, console and workspaces.
 The optional core patch adds:
 
 - native focus/input for reliable background clicks
-- read-only network capture
+- read-only network capture (summaries; explicit detail returns redacted
+  request/response headers, not response bodies)
 - controlled downloads
 - screenshots
 

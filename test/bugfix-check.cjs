@@ -38,6 +38,7 @@ function startServer() {
   const files = new Map([
     ['/pointer-none.html', ['text/html; charset=utf-8', fs.readFileSync(path.join(FIXTURES, 'pointer-none.html'), 'utf8')]],
     ['/orders.html', ['text/html; charset=utf-8', fs.readFileSync(path.join(FIXTURES, 'orders.html'), 'utf8')]],
+    ['/select.html', ['text/html; charset=utf-8', fs.readFileSync(path.join(FIXTURES, 'select.html'), 'utf8')]],
     ['/plain-version.txt', ['text/plain; charset=utf-8', fs.readFileSync(path.join(FIXTURES, 'plain-version.txt'), 'utf8')]],
   ]);
   const server = http.createServer((request, response) => {
@@ -98,6 +99,17 @@ async function main() {
       interactive.elements?.[0]?.context || '');
     check('interactive-no-page-text', !String(interactive.text || '').includes('ORD-0001'),
       `text=${String(interactive.text || '').slice(0, 80)}`);
+
+    await command('navigate', { url: `http://127.0.0.1:${PORT}/select.html` });
+    const selected = await command('act', {
+      actions: [{ action: 'select', target: '#plan', text: 'Pro' }],
+      snapshot: 'none',
+    });
+    const selectValue = await command('extract', {
+      fields: [{ name: 'plan', selector: '#plan', attr: 'value' }],
+    });
+    check('select-action-ok', selected.ok !== false, `ok=${selected.ok}`);
+    check('select-visible-text', selectValue.data?.fields?.plan === 'pro', `value=${selectValue.data?.fields?.plan}`);
   } finally {
     server.close();
   }

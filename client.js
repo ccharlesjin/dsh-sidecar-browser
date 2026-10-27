@@ -1125,6 +1125,78 @@ window.__ModuleLoader__.load({
       })()`;
     }
 
+    function selectScript(target, wanted) {
+      return `(() => {
+        const rawTarget = ${JSON.stringify(target)};
+        const refMatch = /^(.*)@r(\\d+)$/.exec(rawTarget);
+        const target = refMatch ? refMatch[1] : rawTarget;
+        const expectedRevision = refMatch ? Number(refMatch[2]) : null;
+        ${ACTIONABILITY_SCRIPT}
+        const wanted = ${JSON.stringify(wanted)};
+        const normalize = (value) => String(value ?? '').replace(/\\s+/g, ' ').trim().toLowerCase();
+        function find(doc) {
+          let el = null;
+          try {
+            el = target.startsWith('dsh-')
+              ? doc.querySelector('[data-dsh-id="' + target + '"]')
+              : doc.querySelector(target);
+          } catch {
+            el = null;
+          }
+          if (el) return el;
+          let frames = [];
+          try { frames = Array.from(doc.querySelectorAll('iframe, frame')); } catch { frames = []; }
+          for (const frame of frames) {
+            let sub = null;
+            try { sub = frame.contentDocument; } catch { sub = null; }
+            if (!sub) continue;
+            const found = find(sub);
+            if (found) return found;
+          }
+          return null;
+        }
+        const el = find(document);
+        if (!el) return target.startsWith('dsh-')
+          ? { ok: false, code: 'STALE_REF', error: '目标不在当前页面，快照可能已过期' }
+          : { ok: false, code: 'NOT_FOUND', error: '找不到目标：' + target };
+        if (expectedRevision !== null) {
+          const currentRevision = Number(window.__dshRevision) || 0;
+          const observedRevision = Number(el.getAttribute('data-dsh-rev'));
+          if (currentRevision !== expectedRevision || observedRevision !== expectedRevision) {
+            return { ok: false, stale: true, code: 'STALE_REF', error: '快照已失效，请重新 observe/read' };
+          }
+        }
+        if (el.tagName !== 'SELECT') {
+          return { ok: false, code: 'NOT_SELECT', error: 'select 只能用于 <select>，目标是 ' + el.tagName.toLowerCase() };
+        }
+        const actionable = checkActionable(el, 'click');
+        if (actionable) return { ok: false, ...actionable };
+        el.scrollIntoView({ block: 'center', inline: 'center' });
+        el.focus();
+        const options = Array.from(el.options || []);
+        const needle = normalize(wanted);
+        let option = options.find((item) => normalize(item.textContent) === needle)
+          || options.find((item) => normalize(item.value) === needle)
+          || options.find((item) => normalize(item.textContent).includes(needle) || normalize(item.value).includes(needle));
+        if (!option) {
+          return {
+            ok: false,
+            code: 'OPTION_NOT_FOUND',
+            error: '找不到选项：' + wanted,
+            options: options.slice(0, 20).map((item) => ({ text: item.textContent.trim(), value: item.value })),
+          };
+        }
+        if (el.multiple) {
+          for (const item of options) item.selected = item === option;
+        } else {
+          option.selected = true;
+        }
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+        return { ok: true, value: el.value, text: option.textContent.trim() };
+      })()`;
+    }
+
     function hoverScript(target) {
       return `(() => {
         const rawTarget = ${JSON.stringify(target)};
@@ -2238,7 +2310,7 @@ window.__ModuleLoader__.load({
                   deltaBaseline = null;
                 }
               }
-              const allowed = ['click', 'type', 'hover', 'navigate', 'back', 'reload', 'read', 'observe', 'extract'];
+              const allowed = ['click', 'type', 'select', 'hover', 'navigate', 'back', 'reload', 'read', 'observe', 'extract'];
               const descriptors = new Map();
               if (selfHeal) {
                 try {
@@ -2590,6 +2662,19 @@ window.__ModuleLoader__.load({
                 ...snapshot,
                 changed,
                 ...(changed ? {} : { status: '输入并提交后页面未发生变化（可能提交被拦截，或本来无需跳转）' }),
+              };
+            }
+
+            if (action === 'select') {
+              const target = String(args.target || '');
+              const wanted = String(args.text ?? args.value ?? args.option ?? '');
+              if (!wanted) throw new Error('select 需要 text/value');
+              const result = await element.executeJavaScript(selectScript(target, wanted), true);
+              if (!result || result.ok !== true) throw actionError(result, '选择失败');
+              const snapshot = await readAfterAction(args);
+              return {
+                ...snapshot,
+                status: `已选择 ${result.text || result.value}`,
               };
             }
 

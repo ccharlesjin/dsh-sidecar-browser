@@ -407,6 +407,7 @@ async function nativeCall(action, payload = {}) {
     ...typeof data.failedStep === 'number' ? { failedStep: data.failedStep } : {},
     ...Array.isArray(data.steps) ? { steps: data.steps } : {},
     ...typeof data.recipe === 'string' ? { recipe: data.recipe } : {},
+    ...data.detail && typeof data.detail === 'object' ? { detail: data.detail } : {},
     ...Array.isArray(data.dialogs) && data.dialogs.length > 0 ? { dialogs: data.dialogs } : {},
     ...Array.isArray(data.console) && data.console.length > 0 ? { console: data.console } : {},
     ...Array.isArray(data.requests) ? {
@@ -947,6 +948,8 @@ const networkArgs = {
     type: { type: 'string', description: 'Comma-separated resource types, e.g. xhr,fetch,script,image.' },
     status: { type: 'string', enum: ['failed', '4xx', '5xx'], description: 'Filter by failure or HTTP status class.' },
     limit: { type: 'integer', minimum: 1, maximum: 200 },
+    index: { type: 'integer', minimum: 0, description: 'Single-request detail: index in the current network list (0-based).' },
+    part: { type: 'string', enum: ['request-headers', 'response-headers'], description: 'Single-request detail part. Response bodies are not captured by the optional core patch.' },
     clear: { type: 'boolean', description: 'Clear the network buffer after reading.' },
     includeNoise: { type: 'boolean', description: 'Include ERR_CACHE_MISS / ERR_ABORTED entries (hidden by default).' },
   },
@@ -961,6 +964,7 @@ const networkResultSchema = {
     total: { type: 'number' },
     ignored: { type: 'number' },
     requests: { type: 'array', items: networkRequestSchema },
+    detail: { type: 'object', additionalProperties: true },
   },
   required: ['url', 'title', 'total', 'requests'],
 };
@@ -1079,6 +1083,15 @@ function renderConsole(value) {
 
 function renderNetwork(value) {
   const requests = Array.isArray(value.requests) ? value.requests : [];
+  if (value.detail) {
+    const request = requests[0] || {};
+    return [
+      `URL: ${value.url || ''}`,
+      `REQUEST #${value.detail.index} ${request.method || ''} ${request.url || ''}`,
+      `PART: ${value.detail.part || ''}`,
+      JSON.stringify(value.detail.value || {}, null, 2),
+    ].join('\n');
+  }
   if (requests.length === 0) return `URL: ${value.url || ''}\nNETWORK: (empty)`;
   const lines = requests.map((entry) => {
     const status = entry.error ? `ERR ${entry.error}` : String(entry.status || '');
@@ -1315,9 +1328,11 @@ const actArgs = {
         type: 'object',
         additionalProperties: false,
         properties: {
-          action: { type: 'string', enum: ['click', 'type', 'hover', 'navigate', 'back', 'reload', 'read', 'observe', 'extract'] },
+          action: { type: 'string', enum: ['click', 'type', 'select', 'hover', 'navigate', 'back', 'reload', 'read', 'observe', 'extract'] },
           target: { type: 'string' },
           text: { type: 'string' },
+          value: { type: 'string', description: 'For select: option value. text is preferred and also matches visible option text.' },
+          option: { type: 'string', description: 'For select: option visible text or value.' },
           submit: { type: 'boolean' },
           url: { type: 'string' },
           fields: { type: 'array', items: { type: 'object', additionalProperties: true }, maxItems: 50 },
@@ -1551,8 +1566,10 @@ const recipeActionSchema = {
   type: 'object',
   additionalProperties: false,
   properties: {
-    action: { type: 'string', enum: ['click', 'hover', 'type', 'navigate', 'back', 'reload', 'read', 'observe'] },
+    action: { type: 'string', enum: ['click', 'hover', 'type', 'select', 'navigate', 'back', 'reload', 'read', 'observe'] },
     target: { type: 'string' },
+    text: { type: 'string' },
+    value: { type: 'string' },
     url: { type: 'string' },
   },
   required: ['action'],
@@ -1889,7 +1906,7 @@ export function apply(ctx) {
 
   registerTool({
     name: 'native_browser_network',
-    description: 'Read the bounded, read-only network buffer captured by the native browser guest: method, redacted URL, resource type, HTTP status or error, cache flag and time. Headers, bodies and credentials are never stored. Use this to diagnose blank pages, failed API calls and 4xx/5xx responses. Optional type/status filters, limit and clear.',
+    description: 'Read the bounded, read-only network buffer captured by the native browser guest: method, redacted URL, resource type, HTTP status or error, cache flag and time. Add index plus part=request-headers|response-headers for one request detail (sensitive headers are redacted). Response bodies are not captured. Use this to diagnose blank pages, failed API calls and 4xx/5xx responses. Optional type/status filters, limit and clear.',
     parameters: networkArgs,
     isConcurrencySafe: () => true,
     output: {
@@ -1902,6 +1919,8 @@ export function apply(ctx) {
         type: args.type,
         status: args.status,
         limit: args.limit,
+        index: args.index,
+        part: args.part,
         clear: args.clear === true,
         includeNoise: args.includeNoise === true,
       });
@@ -1922,6 +1941,7 @@ export function apply(ctx) {
         total: Number(raw.total) || 0,
         ignored,
         requests,
+        ...(raw.detail && typeof raw.detail === 'object' ? { detail: raw.detail } : {}),
       };
     },
   });
@@ -2135,7 +2155,7 @@ export function apply(ctx) {
 
   registerTool(tool(
     'native_browser_act',
-    'Preferred entry point for multi-step work: run page actions sequentially in one call, then return one final snapshot plus per-step status. Recipes: query a value -> act([navigate, extract], snapshot=none); submit a form -> act([type, click], expect); history -> act([back]) or act([reload]); confirm a change -> observe(sinceRevision) or act expect; visually verify -> screenshot(target). Supported actions: click, type, hover, navigate, back, reload, read, observe, extract. snapshot defaults to minimal: pass snapshot=none for pure navigate/extract recipes and delta for same-URL diffs. Sub-actions use snapshot=none internally; stopOnError defaults true. Each action can set expect (url/title/text/element) and timeoutMs. extract supports fields/table/index/meta/jsonld/debug. Failed steps report code and revision diagnostics.',
+    'Preferred entry point for multi-step work: run page actions sequentially in one call, then return one final snapshot plus per-step status. Recipes: fill a form -> act([type, select, click], expect); query a value -> act([navigate, extract], snapshot=none); submit a form -> act([type, click], expect); history -> act([back]) or act([reload]); confirm a change -> observe(sinceRevision) or act expect; visually verify -> screenshot(target). Supported actions: click, type, select, hover, navigate, back, reload, read, observe, extract. select matches an option by visible text (or value) and fires input/change. snapshot defaults to minimal: pass snapshot=none for pure navigate/extract recipes and delta for same-URL diffs. Sub-actions use snapshot=none internally; stopOnError defaults true. Each action can set expect (url/title/text/element) and timeoutMs. extract supports query/fields/table/index/meta/jsonld/debug. Failed steps report code and revision diagnostics.',
     actArgs,
     'act',
     {},

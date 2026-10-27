@@ -110,7 +110,8 @@ await native_browser_observe({ mode: "interactive" });
 await native_browser_act({
   actions: [
     { action: "click", target: "dsh-…" },
-    { action: "type", target: "dsh-…", text: "hello" }
+    { action: "type", target: "dsh-…", text: "hello" },
+    { action: "select", target: "dsh-…", text: "Pro" }
   ],
   expect: { textIncludes: "Saved" },
   snapshot: "none"
@@ -126,7 +127,7 @@ await native_browser_extract({ query: "ORD-0173", limit: 5 });
 |---|---|
 | Navigation | tabs, history, back/reload, target="_blank" in current tab, user takeover |
 | Observation | budgets, interactive-only mode with context, deltas, scoped reads, revisions |
-| Actions | click, type, hover, batched act, assertions, retries |
+| Actions | click, type, select, hover, batched act, assertions, retries |
 | Extraction | semantic query, CSS fields, tables, meta, JSON-LD, debug hints |
 | Diagnostics | not-found candidates, actionability reasons, console context |
 | Files | file input upload, drag/drop, controlled downloads |
@@ -204,7 +205,8 @@ main process and makes a timestamped backup before installing.
 
 - Uploads and drag/drop are restricted by `policy.json → uploadRoots`
 - Empty `uploadRoots` rejects all local uploads until configured
-- Network capture stores no headers, bodies or cookies
+- Network summaries store no headers or bodies; explicit request detail returns
+  redacted request/response headers only, never response bodies
 - URLs and console text redact token/JWT/Bearer-style parameters
 - Downloads go to `Downloads/DSH Browser`, sanitized, never auto-opened
 
@@ -327,7 +329,8 @@ await native_browser_observe({ mode: "interactive" });
 await native_browser_act({
   actions: [
     { action: "click", target: "dsh-…" },
-    { action: "type", target: "dsh-…", text: "hello" }
+    { action: "type", target: "dsh-…", text: "hello" },
+    { action: "select", target: "dsh-…", text: "Pro" }
   ],
   expect: { textIncludes: "已保存" },
   snapshot: "none"
@@ -343,7 +346,7 @@ await native_browser_extract({ query: "ORD-0173", limit: 5 });
 |---|---|
 | 导航 | 标签页、历史、后退/刷新、target="_blank" 当前标签打开、用户接管 |
 | 观察 | 多档快照、interactive 模式（仅动作元素 + 上下文）、增量 diff、范围读取 |
-| 动作 | 点击、输入、悬停、批量 act、断言、重试 |
+| 动作 | 点击、输入、选择、悬停、批量 act、断言、重试 |
 | 提取 | 语义 query、CSS 字段、表格、meta、JSON-LD、debug |
 | 诊断 | 找不到元素时候选列表、不可点击原因、console 上下文 |
 | 文件 | file input 上传、拖拽上传、受控下载 |
@@ -419,7 +422,8 @@ powershell -ExecutionPolicy Bypass -File .\scripts\update.ps1
 
 - 上传和拖拽受 `policy.json → uploadRoots` 限制
 - `uploadRoots` 为空时默认拒绝所有本地上传
-- network 不保存 headers、body 或 cookie
+- network 摘要不保存 headers/body；显式单请求详情只返回脱敏后的请求/响应 headers，
+  不返回响应 body
 - URL 和 console 文本会脱敏 token / JWT / Bearer 参数
 - 下载只写到 `Downloads/DSH Browser`，清理文件名，不覆盖，不自动打开
 
